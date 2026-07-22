@@ -4,7 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rapture Strength &amp; Rehabilitation</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0908">
+<link rel="icon" href="icon-192.png">
+
+<!-- iOS-specific tags so "Add to Home Screen" behaves like a real app -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rapture S&amp;R">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <style>
   :root {
     --bg: #0a0908;
@@ -145,7 +156,7 @@
     border-radius: 14px; padding: 18px; margin-bottom: 20px;
   }
   .chart-card h3 { margin: 0 0 14px; font-size: 14px; color: var(--muted); font-weight: 600; }
-  canvas { max-height: 220px; }
+  canvas { max-height: 260px; }
 
   select {
     width: 100%; padding: 12px 14px; background: var(--card2);
@@ -287,6 +298,32 @@
 
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbw_VrKcXutc_k-glKMb11YRxNs8Eo96fHGP5JOv_DrEsE08spMClqG606a4otzao9YzoA/exec";
+
+  // Register the datalabels plugin, but OFF by default globally —
+  // each chart explicitly turns it on with its own formatting, so
+  // charts that don't want labels (legends, etc.) aren't affected.
+  Chart.register(ChartDataLabels);
+  Chart.defaults.plugins.datalabels.display = false;
+  Chart.defaults.font.size = 12;
+
+  // Shared datalabels config for a value shown just above a line point
+  function pointLabelConfig(color, formatter) {
+    return {
+      display: true,
+      align: "top",
+      anchor: "end",
+      offset: 4,
+      color: "#f2e9d8",
+      backgroundColor: "#0a0908cc",
+      borderRadius: 4,
+      padding: { top: 2, bottom: 2, left: 5, right: 5 },
+      font: { size: 10, weight: "600" },
+      formatter
+    };
+  }
+
+  const roundInt = (v) => Math.round(v).toLocaleString();
+  const round1 = (v) => Number(v).toFixed(1);
 
   const loginScreen = document.getElementById("loginScreen");
   const dashboard = document.getElementById("dashboard");
@@ -513,10 +550,10 @@
     const labels = blockWeeks.map(r => r["Week"] || toDate(r).toLocaleDateString());
 
     renderLineChart("volumeChart", "volumeChartInstance", labels,
-      blockWeeks.map(r => Number(r["Total Volume"]) || 0), "Volume", "#d4a24c");
+      blockWeeks.map(r => Number(r["Total Volume"]) || 0), "Volume", "#d4a24c", null, "integer");
 
     renderLineChart("wrpeChart", "wrpeChartInstance", labels,
-      blockWeeks.map(r => Number(r["wRPE"]) || 0), "wRPE", "#b6402c");
+      blockWeeks.map(r => Number(r["wRPE"]) || 0), "wRPE", "#b6402c", null, "decimal");
 
     renderExerciseSelector(blockId);
     renderMovementBreakdown(blockId);
@@ -562,16 +599,25 @@
       type: "bar",
       data: {
         labels,
-        datasets: [{ label, data, backgroundColor: color, borderRadius: 4, barPercentage: 0.6, categoryPercentage: 0.75 }]
+        datasets: [{
+          label, data, backgroundColor: color, borderRadius: 4,
+          barPercentage: 0.6, categoryPercentage: 0.75,
+          datalabels: {
+            display: true, align: "end", anchor: "end", offset: 4,
+            color: "#f2e9d8", font: { size: 11, weight: "600" },
+            formatter: (v) => Number.isInteger(v) ? v.toLocaleString() : v.toFixed(1)
+          }
+        }]
       },
       options: {
         indexAxis: "y",
         responsive: true,
         maintainAspectRatio: false,
+        layout: { padding: { right: 36 } },
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: "#a5967f" }, grid: { color: "#2a241c" } },
-          y: { ticks: { color: "#a5967f" }, grid: { display: false } }
+          x: { ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" } },
+          y: { ticks: { color: "#a5967f", font: { size: 12 } }, grid: { display: false } }
         }
       }
     });
@@ -637,17 +683,30 @@
         datasets: [
           {
             label: "Weight", data: weightData, borderColor: "#d4a24c",
-            backgroundColor: "#d4a24c33", tension: 0.3, fill: true, pointRadius: 3, yAxisID: "y"
+            backgroundColor: "#d4a24c33", tension: 0.3, fill: true, pointRadius: 4, pointHoverRadius: 6, yAxisID: "y",
+            datalabels: {
+              display: true, align: "top", anchor: "end", offset: 4,
+              color: "#f2e9d8", backgroundColor: "#0a0908cc", borderRadius: 4,
+              padding: { top: 2, bottom: 2, left: 5, right: 5 },
+              font: { size: 10, weight: "600" }, formatter: roundInt
+            }
           },
           {
             label: "RPE", data: rpeData, borderColor: "#b6402c",
             backgroundColor: "transparent", borderDash: [4, 3],
-            tension: 0.3, fill: false, pointRadius: 3, yAxisID: "y1"
+            tension: 0.3, fill: false, pointRadius: 4, pointHoverRadius: 6, yAxisID: "y1",
+            datalabels: {
+              display: true, align: "bottom", anchor: "start", offset: 4,
+              color: "#e8927a", backgroundColor: "#0a0908cc", borderRadius: 4,
+              padding: { top: 2, bottom: 2, left: 5, right: 5 },
+              font: { size: 10, weight: "600" }, formatter: round1
+            }
           }
         ]
       },
       options: {
         responsive: true,
+        layout: { padding: { top: 24, bottom: 12 } },
         plugins: {
           legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } },
           tooltip: tooltipRows ? {
@@ -664,9 +723,9 @@
           } : {}
         },
         scales: {
-          x: { ticks: { color: "#a5967f" }, grid: { color: "#2a241c" } },
-          y: { position: "left", ticks: { color: "#a5967f" }, grid: { color: "#2a241c" }, title: { display: true, text: "Weight", color: "#a5967f" } },
-          y1: { position: "right", min: 0, max: 10, ticks: { color: "#a5967f" }, grid: { display: false }, title: { display: true, text: "RPE", color: "#a5967f" } }
+          x: { ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" } },
+          y: { position: "left", ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" }, title: { display: true, text: "Weight", color: "#a5967f" } },
+          y1: { position: "right", min: 0, max: 10, ticks: { color: "#a5967f", font: { size: 11 } }, grid: { display: false }, title: { display: true, text: "RPE", color: "#a5967f" } }
         }
       }
     });
@@ -727,10 +786,10 @@
     const fullBlockNames = waves.map(w => w.blockId);
 
     renderMacroChart("macroVolumeChart", "macroVolumeChartInstance", labels,
-      waves.map(w => w.avgVolume), "Avg Volume", "#d4a24c", fullBlockNames);
+      waves.map(w => w.avgVolume), "Avg Volume", "#d4a24c", fullBlockNames, "integer");
 
     renderMacroChart("macroWrpeChart", "macroWrpeChartInstance", labels,
-      waves.map(w => w.avgWrpe), "Avg wRPE", "#b6402c", fullBlockNames);
+      waves.map(w => w.avgWrpe), "Avg wRPE", "#b6402c", fullBlockNames, "decimal");
 
     renderAllTimeMovementBreakdown();
   }
@@ -760,20 +819,23 @@
       bySets.map(([m]) => m), bySets.map(([, v]) => v.sets / totalWeeks), "Avg Weekly Sets", "#b6402c");
   }
 
-  function renderMacroChart(canvasId, instanceKey, labels, data, label, color, fullBlockNames) {
+  function renderMacroChart(canvasId, instanceKey, labels, data, label, color, fullBlockNames, valueType) {
     const ctx = document.getElementById(canvasId).getContext("2d");
     if (window[instanceKey]) window[instanceKey].destroy();
+    const formatter = valueType === "decimal" ? round1 : roundInt;
     window[instanceKey] = new Chart(ctx, {
       type: "line",
       data: {
         labels,
         datasets: [{
           label, data, borderColor: color, backgroundColor: color + "33",
-          tension: 0.3, fill: true, pointRadius: 3
+          tension: 0.3, fill: true, pointRadius: 4, pointHoverRadius: 6,
+          datalabels: pointLabelConfig(color, formatter)
         }]
       },
       options: {
         responsive: true,
+        layout: { padding: { top: 20 } },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -783,27 +845,30 @@
           }
         },
         scales: {
-          x: { ticks: { color: "#a5967f", autoSkip: false, maxRotation: 60, minRotation: 40 }, grid: { color: "#2a241c" } },
-          y: { ticks: { color: "#a5967f" }, grid: { color: "#2a241c" } }
+          x: { ticks: { color: "#a5967f", autoSkip: false, maxRotation: 60, minRotation: 40, font: { size: 10 } }, grid: { color: "#2a241c" } },
+          y: { ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" } }
         }
       }
     });
   }
 
-  function renderLineChart(canvasId, instanceKey, labels, data, label, color, tooltipRows) {
+  function renderLineChart(canvasId, instanceKey, labels, data, label, color, tooltipRows, valueType) {
     const ctx = document.getElementById(canvasId).getContext("2d");
     if (window[instanceKey]) window[instanceKey].destroy();
+    const formatter = valueType === "decimal" ? round1 : roundInt;
     window[instanceKey] = new Chart(ctx, {
       type: "line",
       data: {
         labels,
         datasets: [{
           label, data, borderColor: color, backgroundColor: color + "33",
-          tension: 0.3, fill: true, pointRadius: 3
+          tension: 0.3, fill: true, pointRadius: 4, pointHoverRadius: 6,
+          datalabels: pointLabelConfig(color, formatter)
         }]
       },
       options: {
         responsive: true,
+        layout: { padding: { top: 20 } },
         plugins: {
           legend: { display: false },
           tooltip: tooltipRows ? {
@@ -821,8 +886,8 @@
           } : {}
         },
         scales: {
-          x: { ticks: { color: "#a5967f" }, grid: { color: "#2a241c" } },
-          y: { ticks: { color: "#a5967f" }, grid: { color: "#2a241c" } }
+          x: { ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" } },
+          y: { ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" } }
         }
       }
     });
@@ -859,7 +924,7 @@
     const labels = rows.map(r => r["Week"] || toDate(r).toLocaleDateString());
     const data = rows.map(r => Number(r["Top Set"]) || 0);
 
-    renderLineChart("exerciseChart", "exerciseChartInstance", labels, data, "Top Set", "#d4a24c", rows);
+    renderLineChart("exerciseChart", "exerciseChartInstance", labels, data, "Top Set", "#d4a24c", rows, "integer");
   }
 </script>
 
