@@ -105,6 +105,30 @@
   .profile-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
   #photoInput { display: none; }
 
+  .scorecard {
+    display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px;
+    padding-bottom: 2px;
+  }
+  .stat-chip {
+    flex: 1; min-width: 84px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 12px; text-align: center;
+  }
+  .stat-value { font-size: 17px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+
+  .speciality-row { margin-bottom: 20px; }
+  .speciality-row label { margin-bottom: 6px; }
+  .speciality-edit { display: flex; gap: 8px; }
+  .speciality-edit input {
+    flex: 1; margin-bottom: 0; padding: 10px 12px; font-size: 14px;
+  }
+  .speciality-edit button {
+    padding: 10px 16px; font-size: 13px; white-space: nowrap;
+  }
+  .speciality-msg { font-size: 12px; margin-top: 6px; color: var(--muted); min-height: 16px; }
+  .speciality-msg.success { color: var(--accent); }
+  .speciality-msg.error { color: var(--error); }
+
   /* ---------- Tabs ---------- */
   .tabs {
     display: flex; gap: 6px; margin-bottom: 22px; border-bottom: 1px solid var(--border);
@@ -212,6 +236,22 @@
     </div>
   </div>
 
+  <div class="scorecard">
+    <div class="stat-chip"><div class="stat-value" id="statTotalVolume">—</div><div class="stat-label">Lifetime Volume</div></div>
+    <div class="stat-chip"><div class="stat-value" id="statTotalSets">—</div><div class="stat-label">Lifetime Sets</div></div>
+    <div class="stat-chip"><div class="stat-value" id="statBlocks">—</div><div class="stat-label">Blocks</div></div>
+    <div class="stat-chip"><div class="stat-value" id="statWeeks">—</div><div class="stat-label">Weeks Logged</div></div>
+  </div>
+
+  <div class="speciality-row">
+    <label for="specialityInput">Speciality</label>
+    <div class="speciality-edit">
+      <input id="specialityInput" type="text" placeholder="e.g. Deadlift, Squat">
+      <button id="specialitySaveBtn">Save</button>
+    </div>
+    <div id="specialityMsg" class="speciality-msg"></div>
+  </div>
+
   <div class="tabs">
     <button class="tab active" data-tab="currentBlock">Current Block</button>
     <button class="tab" data-tab="allBlocks">All Blocks</button>
@@ -269,12 +309,12 @@
 
     <div class="chart-card">
       <h3>Volume trend across blocks (per wave)</h3>
-      <canvas id="macroVolumeChart"></canvas>
+      <div class="chart-scroll"><div class="chart-scroll-inner" id="macroVolumeChartWrap"><canvas id="macroVolumeChart"></canvas></div></div>
     </div>
 
     <div class="chart-card">
       <h3>wRPE trend across blocks (per wave)</h3>
-      <canvas id="macroWrpeChart"></canvas>
+      <div class="chart-scroll"><div class="chart-scroll-inner" id="macroWrpeChartWrap"><canvas id="macroWrpeChart"></canvas></div></div>
     </div>
 
     <div class="chart-card">
@@ -571,7 +611,72 @@
     renderMovementBreakdown(blockId);
     renderAllBlocksOverview();
     renderExerciseHistoryTab();
+    renderScorecard();
+    renderSpeciality();
   }
+
+  // ---------- Lifetime totals scorecard ----------
+  function renderScorecard() {
+    const totalVolume = clientData.trainingData.reduce((sum, r) => sum + (Number(r["Volume"]) || 0), 0);
+    const totalSets = clientData.trainingData.reduce((sum, r) => sum + (Number(r["Sets"]) || 0), 0);
+    const blockCount = new Set(clientData.weeklySummary.map(r => r["BlockID"])).size;
+    const weekCount = clientData.weeklySummary.length;
+
+    document.getElementById("statTotalVolume").textContent = Math.round(totalVolume).toLocaleString();
+    document.getElementById("statTotalSets").textContent = Math.round(totalSets).toLocaleString();
+    document.getElementById("statBlocks").textContent = blockCount;
+    document.getElementById("statWeeks").textContent = weekCount;
+  }
+
+  // ---------- Editable speciality field ----------
+  const specialityInput = document.getElementById("specialityInput");
+  const specialitySaveBtn = document.getElementById("specialitySaveBtn");
+  const specialityMsg = document.getElementById("specialityMsg");
+  let lastSavedSpeciality = "";
+
+  function renderSpeciality() {
+    lastSavedSpeciality = clientData.speciality || "";
+    specialityInput.value = lastSavedSpeciality;
+    specialityMsg.textContent = "";
+  }
+
+  specialitySaveBtn.addEventListener("click", async () => {
+    const value = specialityInput.value.trim();
+    if (value === lastSavedSpeciality) return;
+
+    specialitySaveBtn.disabled = true;
+    specialitySaveBtn.textContent = "Saving...";
+    specialityMsg.textContent = "";
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "saveSpeciality",
+          email: currentEmail,
+          passcode: currentPasscode,
+          speciality: value
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        specialityMsg.textContent = data.error;
+        specialityMsg.className = "speciality-msg error";
+      } else {
+        lastSavedSpeciality = value;
+        specialityMsg.textContent = "Saved.";
+        specialityMsg.className = "speciality-msg success";
+      }
+    } catch (err) {
+      specialityMsg.textContent = "Couldn't save — check your connection.";
+      specialityMsg.className = "speciality-msg error";
+      console.error(err);
+    } finally {
+      specialitySaveBtn.disabled = false;
+      specialitySaveBtn.textContent = "Save";
+    }
+  });
 
   // ---------- Movement/muscle-group breakdown (current block) ----------
   let movementVolumeChartInstance, movementSetsChartInstance;
@@ -819,6 +924,10 @@
 
     const labels = waves.map(w => `${shortLabel[w.blockId]} - ${w.wave}`);
     const fullBlockNames = waves.map(w => w.blockId);
+
+    const macroWidth = Math.max(320, waves.length * 65) + "px";
+    document.getElementById("macroVolumeChartWrap").style.width = macroWidth;
+    document.getElementById("macroWrpeChartWrap").style.width = macroWidth;
 
     renderMacroChart("macroVolumeChart", "macroVolumeChartInstance", labels,
       waves.map(w => w.avgVolume), "Avg Volume", "#d4a24c", fullBlockNames, "integer");
