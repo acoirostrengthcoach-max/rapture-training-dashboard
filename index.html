@@ -86,7 +86,17 @@
   .logout { background: transparent; color: var(--muted); font-size: 13px; padding: 6px 10px; }
 
   /* ---------- Client profile row ---------- */
-  .profile-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .profile-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; justify-content: space-between; }
+  .profile-row > div:nth-child(3) { flex-shrink: 0; }
+
+  .animal-widget { text-align: center; flex-shrink: 0; margin-left: auto; }
+  .animal-display { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 6px; }
+  .animal-icon { font-size: 24px; line-height: 1; }
+  .animal-count { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .animal-select {
+    font-size: 11px; padding: 5px 8px; margin-bottom: 0; width: auto;
+    background: var(--card2); border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+  }
   .avatar-outer { position: relative; width: 64px; height: 64px; flex-shrink: 0; cursor: pointer; }
   .avatar-wrap {
     width: 64px; height: 64px; border-radius: 50%;
@@ -263,6 +273,25 @@
     <div>
       <div class="profile-name" id="clientNameLabel"></div>
       <div class="profile-sub" id="profileSub">Tap your photo to update it</div>
+    </div>
+
+    <div class="animal-widget">
+      <div class="animal-display">
+        <span class="animal-icon" id="animalIcon">🐘</span>
+        <span class="animal-count" id="animalCount">—</span>
+      </div>
+      <select id="animalSelect" class="animal-select">
+        <option value="6000" data-icon="🐘">Elephants</option>
+        <option value="2300" data-icon="🦏">Rhinos</option>
+        <option value="1500" data-icon="🦛">Hippos</option>
+        <option value="800" data-icon="🦒">Giraffes</option>
+        <option value="700" data-icon="🐄">Cows</option>
+        <option value="500" data-icon="🐴">Horses</option>
+        <option value="450" data-icon="🐻‍❄️">Polar Bears</option>
+        <option value="190" data-icon="🦁">Lions</option>
+        <option value="160" data-icon="🦍">Gorillas</option>
+        <option value="55" data-icon="🦘">Kangaroos</option>
+      </select>
     </div>
   </div>
 
@@ -790,11 +819,15 @@
   }
 
   // ---------- Lifetime totals scorecard ----------
+  let lifetimeVolumeKg = 0;
+
   function renderScorecard() {
     const totalVolume = clientData.trainingData.reduce((sum, r) => sum + (Number(r["Volume"]) || 0), 0);
     const totalSets = clientData.trainingData.reduce((sum, r) => sum + (Number(r["Sets"]) || 0), 0);
     const blockCount = new Set(clientData.weeklySummary.map(r => r["BlockID"])).size;
     const weekCount = clientData.weeklySummary.length;
+
+    lifetimeVolumeKg = totalVolume;
 
     document.getElementById("statTotalVolume").textContent = Math.round(totalVolume).toLocaleString();
     document.getElementById("statTotalSets").textContent = Math.round(totalSets).toLocaleString();
@@ -805,6 +838,22 @@
     document.getElementById("statBench1RM").textContent = clientData.bench1RM || "—";
     document.getElementById("statDeadlift1RM").textContent = clientData.deadlift1RM || "—";
     document.getElementById("statOhp1RM").textContent = clientData.ohp1RM || "—";
+
+    renderAnimalWidget();
+  }
+
+  // ---------- Fun "volume as animals" widget ----------
+  const animalSelect = document.getElementById("animalSelect");
+  animalSelect.addEventListener("change", renderAnimalWidget);
+
+  function renderAnimalWidget() {
+    const selectedOption = animalSelect.options[animalSelect.selectedIndex];
+    const animalWeight = Number(selectedOption.value);
+    const icon = selectedOption.dataset.icon;
+    const count = animalWeight > 0 ? Math.round(lifetimeVolumeKg / animalWeight) : 0;
+
+    document.getElementById("animalIcon").textContent = icon;
+    document.getElementById("animalCount").textContent = count.toLocaleString();
   }
 
   // ---------- Speciality (display-only, set by coach in the sheet) ----------
