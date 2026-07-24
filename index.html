@@ -898,6 +898,14 @@
   // Consistent DD/MM/YY formatting everywhere — .toLocaleDateString() depends
   // on the browser's locale and defaults to M/D/YYYY for US-English, which
   // isn't what we want regardless of where a client happens to be viewing from.
+  // Rounds to a sensible number of decimals — sheet formulas often produce
+  // very long decimals (e.g. 1559.3425911940294) that look messy displayed raw.
+  function roundTo(value, decimals) {
+    if (value === null || value === undefined || value === "" || isNaN(value)) return value;
+    const factor = Math.pow(10, decimals);
+    return Math.round(Number(value) * factor) / factor;
+  }
+
   function formatDMY(date) {
     if (!date) return "";
     const d = String(date.getDate()).padStart(2, "0");
@@ -1589,48 +1597,51 @@
     emptyEl.style.display = "none";
     dateLabel.textContent = formatDMY(toDate(latest));
 
-    function stat(label, value, unit) {
+    function stat(label, value, unit, decimals) {
       if (value === undefined || value === null || value === "") return "";
-      return `<div class="checkin-stat">${label}<b>${value}${unit || ""}</b></div>`;
+      const displayValue = decimals !== undefined ? roundTo(value, decimals) : value;
+      return `<div class="checkin-stat">${label}<b>${displayValue}${unit || ""}</b></div>`;
     }
 
     summaryEl.innerHTML = `
       <div class="checkin-summary-group">
         <div class="checkin-summary-group-label">Nutrition</div>
         <div class="checkin-summary-row">
-          ${stat("Protein", latest["Protein"], "g")}
-          ${stat("Fats", latest["Fats"], "g")}
-          ${stat("Carbs", latest["Carbs"], "g")}
-          ${stat("Calories", latest["Calories"], "")}
+          ${stat("Protein", latest["Protein"], "g", 0)}
+          ${stat("Fats", latest["Fats"], "g", 0)}
+          ${stat("Carbs", latest["Carbs"], "g", 0)}
+          ${stat("Calories", latest["Calories"], "", 0)}
         </div>
       </div>
       <div class="checkin-summary-group">
         <div class="checkin-summary-group-label">Expenditure</div>
         <div class="checkin-summary-row">
-          ${stat("Total", latest["Total Expenditure"], " kcal")}
-          ${stat("Steps", latest["Daily Steps"], "")}
+          ${stat("Total", latest["Total Expenditure"], " kcal", 0)}
+          ${stat("Steps", latest["Daily Steps"], "", 0)}
           ${stat("Workout", latest["Workout Input"], "")}
         </div>
       </div>
       <div class="checkin-summary-group">
         <div class="checkin-summary-group-label">Sleep &amp; Recovery</div>
         <div class="checkin-summary-row">
-          ${stat("Hours", latest["Sleep Hours"], "h")}
-          ${stat("Quality", latest["Sleep Quality"], "/5")}
+          ${stat("Hours", latest["Sleep Hours"], "h", 1)}
+          ${stat("Quality", latest["Sleep Quality"], "/5", 1)}
         </div>
       </div>
       <div class="checkin-summary-group">
         <div class="checkin-summary-group-label">Energy &amp; Mood</div>
         <div class="checkin-summary-row">
-          ${stat("Daily", latest["Daily Energy"], "/5")}
-          ${stat("Training", latest["Training Energy"], "/5")}
-          ${stat("Stress", latest["Stress"], "/5")}
+          ${stat("Daily", latest["Daily Energy"], "/5", 1)}
+          ${stat("Training", latest["Training Energy"], "/5", 1)}
+          ${stat("Stress", latest["Stress"], "/5", 1)}
+          ${stat("Focus", latest["Focus"], "/5", 1)}
+          ${stat("Soreness", latest["Soreness"], "/5", 1)}
         </div>
       </div>
       <div class="checkin-summary-group">
         <div class="checkin-summary-group-label">Measurements</div>
         <div class="checkin-summary-row">
-          ${stat("Weight", latest["Weight"], "kg")}
+          ${stat("Weight", latest["Weight"], "kg", 1)}
         </div>
       </div>
     `;
@@ -1676,13 +1687,13 @@
         <div class="chart-card"><h3>Macros (g)</h3><canvas id="checkinMacrosChart"></canvas></div>
       `;
       renderMultiLineChart("checkinCaloriesChart", labels, [
-        { label: "Calories", data: weeklyRows.map(r => Number(r["Calories"]) || 0), color: "#d4a24c" },
-        { label: "Target", data: weeklyRows.map(r => Number(r["Calorie Target"]) || 0), color: "#7aa2ff", dashed: true }
+        { label: "Calories", data: weeklyRows.map(r => roundTo(Number(r["Calories"]) || 0, 0)), color: "#d4a24c" },
+        { label: "Target", data: weeklyRows.map(r => roundTo(Number(r["Calorie Target"]) || 0, 0)), color: "#7aa2ff", dashed: true }
       ]);
       renderMultiLineChart("checkinMacrosChart", labels, [
-        { label: "Protein", data: weeklyRows.map(r => Number(r["Protein"]) || 0), color: "#d4a24c" },
-        { label: "Fats", data: weeklyRows.map(r => Number(r["Fats"]) || 0), color: "#b6402c" },
-        { label: "Carbs", data: weeklyRows.map(r => Number(r["Carbs"]) || 0), color: "#7a8a5a" }
+        { label: "Protein", data: weeklyRows.map(r => roundTo(Number(r["Protein"]) || 0, 0)), color: "#d4a24c" },
+        { label: "Fats", data: weeklyRows.map(r => roundTo(Number(r["Fats"]) || 0, 0)), color: "#b6402c" },
+        { label: "Carbs", data: weeklyRows.map(r => roundTo(Number(r["Carbs"]) || 0, 0)), color: "#7a8a5a" }
       ]);
     } else if (category === "measurements") {
       content.innerHTML = `
@@ -1701,7 +1712,7 @@
       const renderMeasurement = () => {
         const field = select.value;
         renderSingleLineChart("checkinMeasurementChart", labels,
-          weeklyRows.map(r => (r[field] !== "" && r[field] !== undefined) ? Number(r[field]) : null), field);
+          weeklyRows.map(r => (r[field] !== "" && r[field] !== undefined) ? roundTo(Number(r[field]), 1) : null), field);
       };
       select.onchange = renderMeasurement;
       renderMeasurement();
@@ -1711,23 +1722,25 @@
         <div class="chart-card"><h3>NEAT &amp; LISS cardio</h3><canvas id="checkinNeatLissChart"></canvas></div>
       `;
       renderSingleLineChart("checkinExpenditureChart", labels,
-        weeklyRows.map(r => Number(r["Total Expenditure"]) || 0), "kcal");
+        weeklyRows.map(r => roundTo(Number(r["Total Expenditure"]) || 0, 0)), "kcal");
       renderMultiLineChart("checkinNeatLissChart", labels, [
-        { label: "NEAT", data: weeklyRows.map(r => Number(r["NEAT"]) || 0), color: "#d4a24c" },
-        { label: "LISS Cardio", data: weeklyRows.map(r => Number(r["LISS Cardio"]) || 0), color: "#b6402c" }
+        { label: "NEAT", data: weeklyRows.map(r => roundTo(Number(r["NEAT"]) || 0, 0)), color: "#d4a24c" },
+        { label: "LISS Cardio", data: weeklyRows.map(r => roundTo(Number(r["LISS Cardio"]) || 0, 0)), color: "#b6402c" }
       ]);
     } else if (category === "sleep") {
       content.innerHTML = `<div class="chart-card"><canvas id="checkinSleepChart"></canvas></div>`;
       renderDualAxisGenericChart("checkinSleepChart", labels,
-        weeklyRows.map(r => Number(r["Sleep Hours"]) || 0), "Hours",
-        weeklyRows.map(r => Number(r["Sleep Quality"]) || 0), "Quality (1-5)");
+        weeklyRows.map(r => roundTo(Number(r["Sleep Hours"]) || 0, 1)), "Hours",
+        weeklyRows.map(r => roundTo(Number(r["Sleep Quality"]) || 0, 1)), "Quality (1-5)");
     } else if (category === "mood") {
       content.innerHTML = `<div class="chart-card"><canvas id="checkinMoodChart"></canvas></div>`;
       renderMultiLineChart("checkinMoodChart", labels, [
-        { label: "Daily Energy", data: weeklyRows.map(r => Number(r["Daily Energy"]) || 0), color: "#d4a24c" },
-        { label: "Training Energy", data: weeklyRows.map(r => Number(r["Training Energy"]) || 0), color: "#7aa2ff" },
-        { label: "Stress", data: weeklyRows.map(r => Number(r["Stress"]) || 0), color: "#b6402c" },
-        { label: "Libido", data: weeklyRows.map(r => Number(r["Libido"]) || 0), color: "#8a6a2f" }
+        { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" },
+        { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" },
+        { label: "Stress", data: weeklyRows.map(r => roundTo(Number(r["Stress"]) || 0, 1)), color: "#b6402c" },
+        { label: "Libido", data: weeklyRows.map(r => roundTo(Number(r["Libido"]) || 0, 1)), color: "#8a6a2f" },
+        { label: "Focus", data: weeklyRows.map(r => r["Focus"] !== "" && r["Focus"] !== undefined ? roundTo(Number(r["Focus"]), 1) : null), color: "#5ee7b0" },
+        { label: "Soreness", data: weeklyRows.map(r => r["Soreness"] !== "" && r["Soreness"] !== undefined ? roundTo(Number(r["Soreness"]), 1) : null), color: "#e8927a" }
       ]);
     } else if (category === "digestion") {
       const dailyRows = (clientData.dailyCheckins || [])
