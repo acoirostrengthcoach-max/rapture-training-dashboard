@@ -205,8 +205,16 @@
   }
   select:focus { outline: none; border-color: var(--accent); }
 
-  .chart-scroll { overflow-x: auto; overflow-y: hidden; }
-  .chart-scroll-inner { height: 260px; }
+  .chart-scroll {
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent;
+    padding-bottom: 6px;
+  }
+  .chart-scroll::-webkit-scrollbar { height: 6px; }
+  .chart-scroll::-webkit-scrollbar-track { background: transparent; }
+  .chart-scroll::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 999px; }
+  .chart-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  .chart-scroll-inner { height: 260px; min-width: 100%; }
   .chart-scroll-inner canvas { max-height: 260px; }
   .chart-empty {
     padding: 30px 10px; text-align: center; color: var(--muted); font-size: 13px;
@@ -1166,10 +1174,10 @@
         indexAxis: "y",
         responsive: true,
         maintainAspectRatio: false,
-        layout: { padding: { right: 56 } },
+        layout: { padding: { right: 72, left: 8 } },
         plugins: { legend: { display: false } },
         scales: {
-          x: { ticks: { color: "#a5967f", font: { size: 11 } }, grid: { color: "#2a241c" } },
+          x: { ticks: { color: "#a5967f", font: { size: 11 }, maxTicksLimit: 5 }, grid: { color: "#2a241c" } },
           y: { ticks: { color: "#a5967f", font: { size: 12 } }, grid: { display: false } }
         }
       }
@@ -1265,7 +1273,7 @@
     } else {
       heavyEmpty.style.display = "none";
       heavyScroll.style.display = "block";
-      document.getElementById("heavyTopSetChartWrap").style.width = Math.max(300, heavyRows.length * POINT_WIDTH) + "px";
+      document.getElementById("heavyTopSetChartWrap").style.minWidth = Math.max(300, heavyRows.length * POINT_WIDTH) + "px";
       renderDualAxisChart("heavyTopSetChart", "heavyTopSetChartInstance",
         heavyRows.map(r => formatDMY(toDate(r))),
         heavyRows.map(r => Number(r["Top Set"]) || 0),
@@ -1291,7 +1299,7 @@
     } else {
       otherEmpty.style.display = "none";
       otherScroll.style.display = "block";
-      document.getElementById("otherRepSchemeChartWrap").style.width = Math.max(300, otherRows.length * POINT_WIDTH) + "px";
+      document.getElementById("otherRepSchemeChartWrap").style.minWidth = Math.max(300, otherRows.length * POINT_WIDTH) + "px";
       renderDualAxisChart("otherRepSchemeChart", "otherRepSchemeChartInstance",
         otherRows.map(r => formatDMY(toDate(r))),
         otherRows.map(r => Number(r["Top Set"]) || 0),
@@ -1345,6 +1353,7 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         layout: { padding: { top: 24, bottom: 12 } },
         plugins: {
           legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } },
@@ -1426,8 +1435,8 @@
     const fullBlockNames = waves.map(w => w.blockId);
 
     const macroWidth = Math.max(320, waves.length * 65) + "px";
-    document.getElementById("macroVolumeChartWrap").style.width = macroWidth;
-    document.getElementById("macroWrpeChartWrap").style.width = macroWidth;
+    document.getElementById("macroVolumeChartWrap").style.minWidth = macroWidth;
+    document.getElementById("macroWrpeChartWrap").style.minWidth = macroWidth;
 
     renderMacroChart("macroVolumeChart", "macroVolumeChartInstance", labels,
       waves.map(w => w.avgVolume), "Avg Volume", "#d4a24c", fullBlockNames, "integer");
@@ -1479,6 +1488,7 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         layout: { padding: { top: 20 } },
         plugins: {
           legend: { display: false },
@@ -1512,6 +1522,7 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         layout: { padding: { top: 20 } },
         plugins: {
           legend: { display: false },
@@ -1698,7 +1709,7 @@
     function applyScrollWidth(...canvasIds) {
       canvasIds.forEach(id => {
         const wrap = document.getElementById(id + "Wrap");
-        if (wrap) wrap.style.width = scrollWidth;
+        if (wrap) wrap.style.minWidth = scrollWidth;
       });
     }
 
@@ -1813,8 +1824,9 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
-          legend: { display: series.length > 1, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } }
+          legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } }
         },
         scales: {
           x: { ticks: { color: "#a5967f", font: { size: 10 } }, grid: { color: "#2a241c" } },
@@ -1839,6 +1851,7 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } } },
         scales: {
           x: { ticks: { color: "#a5967f", font: { size: 10 } }, grid: { color: "#2a241c" } },
