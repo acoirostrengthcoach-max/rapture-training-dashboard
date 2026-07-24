@@ -324,6 +324,7 @@
 
   <div class="tabs">
     <button class="tab active" data-tab="currentBlock">Current Block</button>
+    <button class="tab" data-tab="latestWeek">Latest Week</button>
     <button class="tab" data-tab="allBlocks">All Blocks</button>
     <button class="tab" data-tab="exerciseHistory">Exercise History</button>
   </div>
@@ -342,11 +343,6 @@
         <div class="value" id="fatigueTrend">—</div>
         <span class="tag" id="fatigueTag"></span>
       </div>
-    </div>
-
-    <div class="chart-card">
-      <h3>Latest week — <span id="latestWeekLabel"></span></h3>
-      <div class="session-table" id="latestWeekTable"></div>
     </div>
 
     <div class="chart-card">
@@ -373,6 +369,16 @@
     <div class="chart-card">
       <h3>Set distribution by movement</h3>
       <canvas id="movementSetsChart"></canvas>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="panel-latestWeek">
+    <h2 class="block-title">Latest Week</h2>
+    <p class="block-sub"><span id="latestWeekLabel"></span></p>
+
+    <div class="chart-card">
+      <h3>Everything logged this week</h3>
+      <div class="session-table" id="latestWeekTable"></div>
     </div>
   </div>
 
