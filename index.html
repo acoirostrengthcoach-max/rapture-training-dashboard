@@ -661,7 +661,8 @@
       "heavyTopSetChartInstance", "otherRepSchemeChartInstance",
       "checkinCaloriesChartInstance", "checkinMacrosChartInstance",
       "checkinMeasurementChartInstance", "checkinExpenditureChartInstance",
-      "checkinNeatLissChartInstance", "checkinSleepChartInstance", "checkinMoodChartInstance"
+      "checkinNeatLissChartInstance", "checkinSleepChartInstance",
+      "checkinEnergyChartInstance", "checkinWellbeingChartInstance"
     ];
     instanceNames.forEach(name => {
       const chart = window[name];
@@ -1733,10 +1734,15 @@
         weeklyRows.map(r => roundTo(Number(r["Sleep Hours"]) || 0, 1)), "Hours",
         weeklyRows.map(r => roundTo(Number(r["Sleep Quality"]) || 0, 1)), "Quality (1-5)");
     } else if (category === "mood") {
-      content.innerHTML = `<div class="chart-card"><canvas id="checkinMoodChart"></canvas></div>`;
-      renderMultiLineChart("checkinMoodChart", labels, [
+      content.innerHTML = `
+        <div class="chart-card"><h3>Energy</h3><canvas id="checkinEnergyChart"></canvas></div>
+        <div class="chart-card"><h3>Stress, Libido, Focus &amp; Soreness</h3><canvas id="checkinWellbeingChart"></canvas></div>
+      `;
+      renderMultiLineChart("checkinEnergyChart", labels, [
         { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" },
-        { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" },
+        { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" }
+      ]);
+      renderMultiLineChart("checkinWellbeingChart", labels, [
         { label: "Stress", data: weeklyRows.map(r => roundTo(Number(r["Stress"]) || 0, 1)), color: "#b6402c" },
         { label: "Libido", data: weeklyRows.map(r => roundTo(Number(r["Libido"]) || 0, 1)), color: "#8a6a2f" },
         { label: "Focus", data: weeklyRows.map(r => r["Focus"] !== "" && r["Focus"] !== undefined ? roundTo(Number(r["Focus"]), 1) : null), color: "#5ee7b0" },
