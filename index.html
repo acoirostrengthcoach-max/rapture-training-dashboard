@@ -895,6 +895,17 @@
   // ---------- Data helpers ----------
   const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 
+  // Consistent DD/MM/YY formatting everywhere — .toLocaleDateString() depends
+  // on the browser's locale and defaults to M/D/YYYY for US-English, which
+  // isn't what we want regardless of where a client happens to be viewing from.
+  function formatDMY(date) {
+    if (!date) return "";
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const y = String(date.getFullYear()).slice(-2);
+    return `${d}/${m}/${y}`;
+  }
+
   function parseDate(value) {
     if (!value) return null;
     const str = String(value).trim();
@@ -927,6 +938,10 @@
   }
 
   function toDate(row) { return parseDate(row["Date"]); }
+
+  // Weekly_Checkin_Summary rows store their date under "Week Start", not
+  // "Date" — toDate() would silently return null for these.
+  function toCheckinWeekDate(row) { return parseDate(row["Week Start"]); }
 
   function getCurrentBlockId(weeklySummary) {
     let latest = null, latestDate = null;
@@ -1030,7 +1045,7 @@
 
     renderLatestWeekSummary(blockId, latestRow["Week"]);
 
-    const labels = blockWeeks.map(r => r["Week"] || toDate(r).toLocaleDateString());
+    const labels = blockWeeks.map(r => r["Week"] || formatDMY(toDate(r)));
 
     renderLineChart("volumeChart", "volumeChartInstance", labels,
       blockWeeks.map(r => Number(r["Total Volume"]) || 0), "Volume", "#d4a24c", null, "integer");
@@ -1186,7 +1201,7 @@
     const prRowData = heavyRows[prIndex];
 
     document.getElementById("prValue").textContent = prWeight ? prWeight.toLocaleString() : "—";
-    document.getElementById("prDate").textContent = prWeight ? toDate(prRowData).toLocaleDateString() : "";
+    document.getElementById("prDate").textContent = prWeight ? formatDMY(toDate(prRowData)) : "";
 
     const oneRmField = match1RM(exercise);
     const oneRmTile = document.getElementById("oneRmTile");
@@ -1243,7 +1258,7 @@
       heavyScroll.style.display = "block";
       document.getElementById("heavyTopSetChartWrap").style.width = Math.max(300, heavyRows.length * POINT_WIDTH) + "px";
       renderDualAxisChart("heavyTopSetChart", "heavyTopSetChartInstance",
-        heavyRows.map(r => toDate(r).toLocaleDateString()),
+        heavyRows.map(r => formatDMY(toDate(r))),
         heavyRows.map(r => Number(r["Top Set"]) || 0),
         heavyRows.map(r => Number(r["RPE"]) || 0),
         heavyRows,
@@ -1269,7 +1284,7 @@
       otherScroll.style.display = "block";
       document.getElementById("otherRepSchemeChartWrap").style.width = Math.max(300, otherRows.length * POINT_WIDTH) + "px";
       renderDualAxisChart("otherRepSchemeChart", "otherRepSchemeChartInstance",
-        otherRows.map(r => toDate(r).toLocaleDateString()),
+        otherRows.map(r => formatDMY(toDate(r))),
         otherRows.map(r => Number(r["Top Set"]) || 0),
         otherRows.map(r => Number(r["RPE"]) || 0),
         otherRows);
@@ -1541,7 +1556,7 @@
       .filter(r => parseDate(r["Date"]))
       .sort((a, b) => toDate(a) - toDate(b));
 
-    const labels = rows.map(r => r["Week"] || toDate(r).toLocaleDateString());
+    const labels = rows.map(r => r["Week"] || formatDMY(toDate(r)));
     const data = rows.map(r => Number(r["Top Set"]) || 0);
 
     renderLineChart("exerciseChart", "exerciseChartInstance", labels, data, "Top Set", "#d4a24c", rows, "integer");
@@ -1572,7 +1587,7 @@
     const sorted = [...rows].sort((a, b) => toDate(b) - toDate(a));
     const latest = sorted[0];
     emptyEl.style.display = "none";
-    dateLabel.textContent = toDate(latest).toLocaleDateString();
+    dateLabel.textContent = formatDMY(toDate(latest));
 
     function stat(label, value, unit) {
       if (value === undefined || value === null || value === "") return "";
@@ -1646,14 +1661,14 @@
 
     const weeklyRows = (clientData.weeklyCheckinSummary || [])
       .filter(r => parseDate(r["Week Start"]))
-      .sort((a, b) => toDate(a) - toDate(b));
+      .sort((a, b) => toCheckinWeekDate(a) - toCheckinWeekDate(b));
 
     if (!weeklyRows.length && category !== "digestion") {
       content.innerHTML = `<div class="chart-empty">No check-in history yet.</div>`;
       return;
     }
 
-    const labels = weeklyRows.map(r => toDate(r).toLocaleDateString());
+    const labels = weeklyRows.map(r => formatDMY(toCheckinWeekDate(r)));
 
     if (category === "nutrition") {
       content.innerHTML = `
@@ -1728,7 +1743,7 @@
         dailyRows.forEach(r => {
           const div = document.createElement("div");
           div.className = "session-row";
-          div.innerHTML = `<div class="ex-name">${toDate(r).toLocaleDateString()}</div><div class="ex-stats">${r["Stool Type"] || "—"} · ${r["Stool Colour"] || "—"}</div>`;
+          div.innerHTML = `<div class="ex-name">${formatDMY(toDate(r))}</div><div class="ex-stats">${r["Stool Type"] || "—"} · ${r["Stool Colour"] || "—"}</div>`;
           log.appendChild(div);
         });
       }
