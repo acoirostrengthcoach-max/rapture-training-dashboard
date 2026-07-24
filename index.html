@@ -205,6 +205,17 @@
   }
   select:focus { outline: none; border-color: var(--accent); }
 
+  .custom-legend {
+    display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px;
+  }
+  .custom-legend-item {
+    display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted);
+  }
+  .custom-legend-dot {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .custom-legend-dot.dashed { border-radius: 2px; height: 3px; width: 14px; }
+
   .chart-scroll {
     overflow-x: auto; overflow-y: hidden;
     scrollbar-width: thin; scrollbar-color: var(--accent-dim) transparent;
@@ -505,12 +516,14 @@
     <div class="chart-card">
       <h3>Heavy top sets (1 - 3 reps)</h3>
       <div class="chart-empty" id="heavyTopSetEmpty" style="display:none;">No heavy (1 - 3 rep) sets logged for this exercise.</div>
+      <div class="custom-legend" id="heavyTopSetChartLegend"></div>
       <div class="chart-scroll"><div class="chart-scroll-inner" id="heavyTopSetChartWrap"><canvas id="heavyTopSetChart"></canvas></div></div>
     </div>
 
     <div class="chart-card">
       <h3>Other rep schemes — weight &amp; RPE</h3>
       <div class="chart-empty" id="otherRepSchemeEmpty" style="display:none;">No other rep-scheme sets logged for this exercise.</div>
+      <div class="custom-legend" id="otherRepSchemeChartLegend"></div>
       <div class="chart-scroll"><div class="chart-scroll-inner" id="otherRepSchemeChartWrap"><canvas id="otherRepSchemeChart"></canvas></div></div>
     </div>
   </div>
@@ -1266,9 +1279,11 @@
 
     const heavyEmpty = document.getElementById("heavyTopSetEmpty");
     const heavyScroll = document.getElementById("heavyTopSetChart").closest(".chart-scroll");
+    const heavyLegend = document.getElementById("heavyTopSetChartLegend");
     if (heavyRows.length === 0) {
       heavyEmpty.style.display = "block";
       heavyScroll.style.display = "none";
+      heavyLegend.innerHTML = "";
       if (heavyTopSetChartInstance) { heavyTopSetChartInstance.destroy(); heavyTopSetChartInstance = null; }
     } else {
       heavyEmpty.style.display = "none";
@@ -1292,9 +1307,11 @@
 
     const otherEmpty = document.getElementById("otherRepSchemeEmpty");
     const otherScroll = document.getElementById("otherRepSchemeChart").closest(".chart-scroll");
+    const otherLegend = document.getElementById("otherRepSchemeChartLegend");
     if (otherRows.length === 0) {
       otherEmpty.style.display = "block";
       otherScroll.style.display = "none";
+      otherLegend.innerHTML = "";
       if (otherRepSchemeChartInstance) { otherRepSchemeChartInstance.destroy(); otherRepSchemeChartInstance = null; }
     } else {
       otherEmpty.style.display = "none";
@@ -1306,6 +1323,20 @@
         otherRows.map(r => Number(r["RPE"]) || 0),
         otherRows);
     }
+  }
+
+  // Builds a legend as regular HTML, sitting outside the scrolling chart
+  // canvas — Chart.js's built-in legend is part of the canvas itself, so it
+  // would otherwise scroll out of view along with a wide chart.
+  function renderCustomLegend(canvasId, items) {
+    const container = document.getElementById(canvasId + "Legend");
+    if (!container) return; // not every chart has one (e.g. single-line charts elsewhere)
+    container.innerHTML = items.map(item => `
+      <div class="custom-legend-item">
+        <span class="custom-legend-dot${item.dashed ? " dashed" : ""}" style="background:${item.color};"></span>
+        ${item.label}
+      </div>
+    `).join("");
   }
 
   function renderDualAxisChart(canvasId, instanceKey, labels, weightData, rpeData, tooltipRows, prIndex) {
@@ -1356,7 +1387,7 @@
         maintainAspectRatio: false,
         layout: { padding: { top: 24, bottom: 12 } },
         plugins: {
-          legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } },
+          legend: { display: false },
           tooltip: tooltipRows ? {
             callbacks: {
               afterBody: (items) => {
@@ -1378,6 +1409,11 @@
         }
       }
     });
+
+    renderCustomLegend(canvasId, [
+      { label: "Weight", color: "#d4a24c" },
+      { label: "RPE", color: "#b6402c", dashed: true }
+    ]);
   }
 
   // ---------- All Blocks (macro wave) overview ----------
@@ -1703,7 +1739,7 @@
     const scrollWidth = Math.max(320, labels.length * 60) + "px";
 
     function scrollChart(canvasId, title) {
-      return `<div class="chart-card">${title ? `<h3>${title}</h3>` : ""}<div class="chart-scroll"><div class="chart-scroll-inner" id="${canvasId}Wrap"><canvas id="${canvasId}"></canvas></div></div></div>`;
+      return `<div class="chart-card">${title ? `<h3>${title}</h3>` : ""}<div class="custom-legend" id="${canvasId}Legend"></div><div class="chart-scroll"><div class="chart-scroll-inner" id="${canvasId}Wrap"><canvas id="${canvasId}"></canvas></div></div></div>`;
     }
 
     function applyScrollWidth(...canvasIds) {
@@ -1826,7 +1862,7 @@
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } }
+          legend: { display: false }
         },
         scales: {
           x: { ticks: { color: "#a5967f", font: { size: 10 } }, grid: { color: "#2a241c" } },
@@ -1834,6 +1870,8 @@
         }
       }
     });
+
+    renderCustomLegend(canvasId, series.map(s => ({ label: s.label, color: s.color, dashed: s.dashed })));
   }
 
   function renderDualAxisGenericChart(canvasId, labels, dataA, labelA, dataB, labelB) {
@@ -1852,7 +1890,7 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: true, labels: { color: "#a5967f", boxWidth: 12, font: { size: 11 } } } },
+        plugins: { legend: { display: false } },
         scales: {
           x: { ticks: { color: "#a5967f", font: { size: 10 } }, grid: { color: "#2a241c" } },
           y: { position: "left", ticks: { color: "#a5967f" }, grid: { color: "#2a241c" } },
@@ -1860,6 +1898,11 @@
         }
       }
     });
+
+    renderCustomLegend(canvasId, [
+      { label: labelA, color: "#d4a24c" },
+      { label: labelB, color: "#b6402c", dashed: true }
+    ]);
   }
 </script>
 
