@@ -259,7 +259,7 @@
   .checkin-stat b { display: block; font-size: 15px; color: var(--accent); font-weight: 700; margin-top: 2px; }
 
   .checkin-tile-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px;
   }
   .checkin-tile {
     background: var(--card); border: 1px solid var(--border); border-radius: 14px;
@@ -1604,48 +1604,54 @@
       return `<div class="checkin-stat">${label}<b>${displayValue}${unit || ""}</b></div>`;
     }
 
-    summaryEl.innerHTML = `
-      <div class="checkin-summary-group">
-        <div class="checkin-summary-group-label">Nutrition</div>
-        <div class="checkin-summary-row">
-          ${stat("Protein", latest["Protein"], "g", 0)}
-          ${stat("Fats", latest["Fats"], "g", 0)}
-          ${stat("Carbs", latest["Carbs"], "g", 0)}
-          ${stat("Calories", latest["Calories"], "", 0)}
-        </div>
-      </div>
-      <div class="checkin-summary-group">
-        <div class="checkin-summary-group-label">Expenditure</div>
-        <div class="checkin-summary-row">
-          ${stat("Total", latest["Total Expenditure"], " kcal", 0)}
-          ${stat("Steps", latest["Daily Steps"], "", 0)}
-          ${stat("Workout", latest["Workout Input"], "")}
-        </div>
-      </div>
-      <div class="checkin-summary-group">
-        <div class="checkin-summary-group-label">Sleep &amp; Recovery</div>
-        <div class="checkin-summary-row">
-          ${stat("Hours", latest["Sleep Hours"], "h", 1)}
-          ${stat("Quality", latest["Sleep Quality"], "/5", 1)}
-        </div>
-      </div>
-      <div class="checkin-summary-group">
-        <div class="checkin-summary-group-label">Energy &amp; Mood</div>
-        <div class="checkin-summary-row">
-          ${stat("Daily", latest["Daily Energy"], "/5", 1)}
-          ${stat("Training", latest["Training Energy"], "/5", 1)}
-          ${stat("Stress", latest["Stress"], "/5", 1)}
-          ${stat("Focus", latest["Focus"], "/5", 1)}
-          ${stat("Soreness", latest["Soreness"], "/5", 1)}
-        </div>
-      </div>
-      <div class="checkin-summary-group">
-        <div class="checkin-summary-group-label">Measurements</div>
-        <div class="checkin-summary-row">
-          ${stat("Weight", latest["Weight"], "kg", 1)}
-        </div>
-      </div>
-    `;
+    // Skips the whole group (label included) if none of its stats had data,
+    // rather than leaving an orphaned header with an empty row underneath.
+    function group(label, ...stats) {
+      const content = stats.join("");
+      if (!content.trim()) return "";
+      return `
+        <div class="checkin-summary-group">
+          <div class="checkin-summary-group-label">${label}</div>
+          <div class="checkin-summary-row">${content}</div>
+        </div>`;
+    }
+
+    summaryEl.innerHTML =
+      group("Nutrition",
+        stat("Protein", latest["Protein"], "g", 0),
+        stat("Fats", latest["Fats"], "g", 0),
+        stat("Carbs", latest["Carbs"], "g", 0),
+        stat("Calories", latest["Calories"], "", 0)
+      ) +
+      group("Expenditure",
+        stat("Total", latest["Total Expenditure"], " kcal", 0),
+        stat("Steps", latest["Daily Steps"], "", 0),
+        stat("Workout", latest["Workout Input"], "")
+      ) +
+      group("Sleep &amp; Recovery",
+        stat("Hours", latest["Sleep Hours"], "h", 1),
+        stat("Quality", latest["Sleep Quality"], "/5", 1)
+      ) +
+      group("Energy &amp; Mood",
+        stat("Daily", latest["Daily Energy"], "/5", 1),
+        stat("Training", latest["Training Energy"], "/5", 1),
+        stat("Stress", latest["Stress"], "/5", 1),
+        stat("Focus", latest["Focus"], "/5", 1),
+        stat("Soreness", latest["Soreness"], "/5", 1)
+      ) +
+      group("Measurements",
+        stat("Weight", latest["Weight"], "kg", 1)
+      ) +
+      (latest["Menstrual Phase"]
+        ? `<div class="checkin-summary-group">
+             <div class="checkin-summary-group-label">Cycle</div>
+             <div class="checkin-summary-row"><span class="tag tag-moderate">${latest["Menstrual Phase"]}</span></div>
+           </div>`
+        : "");
+
+    if (!summaryEl.innerHTML.trim()) {
+      summaryEl.innerHTML = `<div class="chart-empty">No data logged for the latest entry.</div>`;
+    }
   }
 
   function wireCheckinTiles() {
@@ -1681,12 +1687,26 @@
     }
 
     const labels = weeklyRows.map(r => formatDMY(toCheckinWeekDate(r)));
+    // Wide check-in histories (up to 52 weeks) need room to breathe on the
+    // x-axis — same horizontal-scroll approach as Exercise History/All Blocks.
+    const scrollWidth = Math.max(320, labels.length * 60) + "px";
+
+    function scrollChart(canvasId, title) {
+      return `<div class="chart-card">${title ? `<h3>${title}</h3>` : ""}<div class="chart-scroll"><div class="chart-scroll-inner" id="${canvasId}Wrap"><canvas id="${canvasId}"></canvas></div></div></div>`;
+    }
+
+    function applyScrollWidth(...canvasIds) {
+      canvasIds.forEach(id => {
+        const wrap = document.getElementById(id + "Wrap");
+        if (wrap) wrap.style.width = scrollWidth;
+      });
+    }
 
     if (category === "nutrition") {
-      content.innerHTML = `
-        <div class="chart-card"><h3>Calories vs target</h3><canvas id="checkinCaloriesChart"></canvas></div>
-        <div class="chart-card"><h3>Macros (g)</h3><canvas id="checkinMacrosChart"></canvas></div>
-      `;
+      content.innerHTML =
+        scrollChart("checkinCaloriesChart", "Calories vs target") +
+        scrollChart("checkinMacrosChart", "Macros (g)");
+      applyScrollWidth("checkinCaloriesChart", "checkinMacrosChart");
       renderMultiLineChart("checkinCaloriesChart", labels, [
         { label: "Calories", data: weeklyRows.map(r => roundTo(Number(r["Calories"]) || 0, 0)), color: "#d4a24c" },
         { label: "Target", data: weeklyRows.map(r => roundTo(Number(r["Calorie Target"]) || 0, 0)), color: "#7aa2ff", dashed: true }
@@ -1707,8 +1727,8 @@
           <option value="Thighs">Thighs (cm)</option>
           <option value="Arms">Arms (cm)</option>
         </select>
-        <div class="chart-card"><canvas id="checkinMeasurementChart"></canvas></div>
-      `;
+      ` + scrollChart("checkinMeasurementChart");
+      applyScrollWidth("checkinMeasurementChart");
       const select = document.getElementById("measurementSelect");
       const renderMeasurement = () => {
         const field = select.value;
@@ -1718,10 +1738,10 @@
       select.onchange = renderMeasurement;
       renderMeasurement();
     } else if (category === "expenditure") {
-      content.innerHTML = `
-        <div class="chart-card"><h3>Total expenditure</h3><canvas id="checkinExpenditureChart"></canvas></div>
-        <div class="chart-card"><h3>NEAT &amp; LISS cardio</h3><canvas id="checkinNeatLissChart"></canvas></div>
-      `;
+      content.innerHTML =
+        scrollChart("checkinExpenditureChart", "Total expenditure") +
+        scrollChart("checkinNeatLissChart", "NEAT &amp; LISS cardio");
+      applyScrollWidth("checkinExpenditureChart", "checkinNeatLissChart");
       renderSingleLineChart("checkinExpenditureChart", labels,
         weeklyRows.map(r => roundTo(Number(r["Total Expenditure"]) || 0, 0)), "kcal");
       renderMultiLineChart("checkinNeatLissChart", labels, [
@@ -1729,15 +1749,16 @@
         { label: "LISS Cardio", data: weeklyRows.map(r => roundTo(Number(r["LISS Cardio"]) || 0, 0)), color: "#b6402c" }
       ]);
     } else if (category === "sleep") {
-      content.innerHTML = `<div class="chart-card"><canvas id="checkinSleepChart"></canvas></div>`;
+      content.innerHTML = scrollChart("checkinSleepChart");
+      applyScrollWidth("checkinSleepChart");
       renderDualAxisGenericChart("checkinSleepChart", labels,
         weeklyRows.map(r => roundTo(Number(r["Sleep Hours"]) || 0, 1)), "Hours",
         weeklyRows.map(r => roundTo(Number(r["Sleep Quality"]) || 0, 1)), "Quality (1-5)");
     } else if (category === "mood") {
-      content.innerHTML = `
-        <div class="chart-card"><h3>Energy</h3><canvas id="checkinEnergyChart"></canvas></div>
-        <div class="chart-card"><h3>Stress, Libido, Focus &amp; Soreness</h3><canvas id="checkinWellbeingChart"></canvas></div>
-      `;
+      content.innerHTML =
+        scrollChart("checkinEnergyChart", "Energy") +
+        scrollChart("checkinWellbeingChart", "Stress, Libido, Focus &amp; Soreness");
+      applyScrollWidth("checkinEnergyChart", "checkinWellbeingChart");
       renderMultiLineChart("checkinEnergyChart", labels, [
         { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" },
         { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" }
