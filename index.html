@@ -290,6 +290,24 @@
   .checkin-tile-icon { font-size: 26px; margin-bottom: 8px; }
   .checkin-tile-name { font-size: 12px; font-weight: 600; }
 
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .form-field input, .form-field select {
+    width: 100%; padding: 10px 12px; background: var(--card2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 14px;
+  }
+  .form-field input:focus, .form-field select:focus { outline: none; border-color: var(--accent); }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-bottom: 4px; }
+  .checkin-form-section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .checkin-form-section h3 { margin: 0 0 12px; font-size: 13px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+  .checkin-form-msg { font-size: 13px; margin-top: 10px; color: var(--muted); text-align: center; }
+  .checkin-form-msg.success { color: var(--accent); }
+  .checkin-form-msg.error { color: var(--error); }
+
   .coach-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 12px;
@@ -537,6 +555,8 @@
       <h2 class="block-title">Check-Ins</h2>
       <p class="block-sub"><span id="latestCheckinDateLabel"></span></p>
 
+      <button class="full" id="logCheckinBtn" style="margin-bottom:18px;">+ Log a Check-In</button>
+
       <div class="chart-card">
         <h3>Latest check-in</h3>
         <div id="latestCheckinEmpty" class="chart-empty" style="display:none;">No check-ins logged yet.</div>
@@ -576,6 +596,125 @@
       <h2 class="block-title" id="checkinDetailTitle"></h2>
       <p class="block-sub">Trend over every logged week</p>
       <div id="checkinDetailContent"></div>
+    </div>
+
+    <div id="checkinForm" style="display:none;">
+      <button class="logout" id="checkinFormBackBtn" style="margin-bottom:14px;">← Check-Ins</button>
+      <h2 class="block-title">Log a Check-In</h2>
+      <p class="block-sub">Pick a date, fill in whatever you've got — you can leave fields blank.</p>
+
+      <div class="form-field">
+        <label for="ciDate">Date</label>
+        <input type="date" id="ciDate">
+        <div class="checkin-form-msg" id="ciExistingNote" style="display:none;">Editing an existing entry for this date — saving will update it.</div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Nutrition</h3>
+        <div class="form-grid">
+          <div class="form-field"><label>Protein (g)</label><input type="number" id="ciProtein"></div>
+          <div class="form-field"><label>Fats (g)</label><input type="number" id="ciFats"></div>
+          <div class="form-field"><label>Carbs (g)</label><input type="number" id="ciCarbs"></div>
+        </div>
+        <div class="form-field">
+          <label>Menstrual Phase (optional)</label>
+          <select id="ciMenstrualPhase">
+            <option value="">—</option>
+            <option>Menstruation</option>
+            <option>Follicular</option>
+            <option>Ovulation</option>
+            <option>Luteal</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Expenditure</h3>
+        <div class="form-grid">
+          <div class="form-field"><label>Daily Steps</label><input type="number" id="ciSteps"></div>
+          <div class="form-field"><label>LISS Cardio (min)</label><input type="number" id="ciLiss"></div>
+          <div class="form-field"><label>NEAT</label><input type="number" id="ciNeat"></div>
+        </div>
+        <div class="form-field">
+          <label>Workout Intensity</label>
+          <select id="ciWorkoutType">
+            <option value="">—</option>
+            <option value="Low">Low</option>
+            <option value="Med">Medium</option>
+            <option value="High">High</option>
+            <option value="custom">I know my exact kcal (e.g. from a smartwatch)</option>
+          </select>
+        </div>
+        <div class="form-field" id="ciWorkoutCustomWrap" style="display:none;">
+          <label>Workout kcal</label>
+          <input type="number" id="ciWorkoutCustom">
+        </div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Sleep &amp; Recovery</h3>
+        <div class="form-grid">
+          <div class="form-field"><label>Sleep Hours</label><input type="number" step="0.1" id="ciSleepHours"></div>
+          <div class="form-field"><label>Sleep Quality (1-5)</label><select class="rating-select" id="ciSleepQuality"><option value="">—</option></select></div>
+        </div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Energy &amp; Mood</h3>
+        <div class="form-grid">
+          <div class="form-field"><label>Daily Energy (1-5)</label><select class="rating-select" id="ciDailyEnergy"><option value="">—</option></select></div>
+          <div class="form-field"><label>Training Energy (1-5)</label><select class="rating-select" id="ciTrainingEnergy"><option value="">—</option></select></div>
+          <div class="form-field"><label>Stress (1-5, 5=calmest)</label><select class="rating-select" id="ciStress"><option value="">—</option></select></div>
+          <div class="form-field"><label>Libido (1-5)</label><select class="rating-select" id="ciLibido"><option value="">—</option></select></div>
+          <div class="form-field"><label>Focus (1-5)</label><select class="rating-select" id="ciFocus"><option value="">—</option></select></div>
+          <div class="form-field"><label>Soreness (1-5)</label><select class="rating-select" id="ciSoreness"><option value="">—</option></select></div>
+        </div>
+        <div class="form-field">
+          <label>Energy Crash Today?</label>
+          <select id="ciEnergyCrash">
+            <option value="">—</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Digestion</h3>
+        <div class="form-grid">
+          <div class="form-field"><label>Stool Type (1-7)</label><input type="number" min="1" max="7" id="ciStoolType"></div>
+          <div class="form-field">
+            <label>Stool Colour</label>
+            <select id="ciStoolColour">
+              <option value="">—</option>
+              <option>Brown</option>
+              <option>Green</option>
+              <option>Yellow</option>
+              <option>Black</option>
+              <option>Pale</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-field"><label>Water Intake (L)</label><input type="number" step="0.1" id="ciWater"></div>
+        <div class="form-field"><label>Hunger (1-5)</label><select class="rating-select" id="ciHunger"><option value="">—</option></select></div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Measurements</h3>
+        <div class="form-grid">
+          <div class="form-field"><label>Weight (kg)</label><input type="number" step="0.1" id="ciWeight"></div>
+          <div class="form-field"><label>Body Fat %</label><input type="number" step="0.1" id="ciBodyFat"></div>
+          <div class="form-field"><label>Bust (cm)</label><input type="number" step="0.1" id="ciBust"></div>
+          <div class="form-field"><label>Waist (cm)</label><input type="number" step="0.1" id="ciWaist"></div>
+          <div class="form-field"><label>Hips (cm)</label><input type="number" step="0.1" id="ciHips"></div>
+          <div class="form-field"><label>Thighs (cm)</label><input type="number" step="0.1" id="ciThighs"></div>
+          <div class="form-field"><label>Arms (cm)</label><input type="number" step="0.1" id="ciArms"></div>
+        </div>
+      </div>
+
+      <button class="full" id="ciSubmitBtn">Save Check-In</button>
+      <div class="checkin-form-msg" id="ciSubmitMsg"></div>
     </div>
   </div>
 </div>
@@ -1678,8 +1817,10 @@
   function renderCheckinsTab() {
     renderLatestCheckin();
     wireCheckinTiles();
+    initCheckinForm();
     // Reset to overview whenever the dashboard re-renders (e.g. switching clients as coach)
     document.getElementById("checkinDetail").style.display = "none";
+    document.getElementById("checkinForm").style.display = "none";
     document.getElementById("checkinOverview").style.display = "block";
   }
 
@@ -1976,6 +2117,216 @@
       { label: labelA, color: "#d4a24c" },
       { label: labelB, color: "#b6402c", dashed: true }
     ]);
+  }
+
+  // ---------- Log Check-In form (Phase 3) ----------
+  let checkinFormInitialized = false;
+
+  function initCheckinForm() {
+    if (!checkinFormInitialized) {
+      document.querySelectorAll(".rating-select").forEach(select => {
+        for (let i = 1; i <= 5; i++) {
+          const opt = document.createElement("option");
+          opt.value = i;
+          opt.textContent = i;
+          select.appendChild(opt);
+        }
+      });
+      checkinFormInitialized = true;
+    }
+
+    const logBtn = document.getElementById("logCheckinBtn");
+    logBtn.style.display = isAdminView ? "none" : "block"; // read-only for coach view, same as photo upload
+
+    logBtn.onclick = openCheckinForm;
+    document.getElementById("checkinFormBackBtn").onclick = closeCheckinForm;
+    document.getElementById("ciDate").onchange = loadExistingCheckinForDate;
+    document.getElementById("ciWorkoutType").onchange = () => {
+      const isCustom = document.getElementById("ciWorkoutType").value === "custom";
+      document.getElementById("ciWorkoutCustomWrap").style.display = isCustom ? "block" : "none";
+    };
+    document.getElementById("ciSubmitBtn").onclick = submitCheckin;
+  }
+
+  function openCheckinForm() {
+    document.getElementById("checkinOverview").style.display = "none";
+    document.getElementById("checkinDetail").style.display = "none";
+    document.getElementById("checkinForm").style.display = "block";
+
+    const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD for the date input
+    document.getElementById("ciDate").value = todayStr;
+    showCheckinSubmitMsg("", false);
+    loadExistingCheckinForDate();
+    requestAnimationFrame(resizeAllCharts);
+  }
+
+  function closeCheckinForm() {
+    document.getElementById("checkinForm").style.display = "none";
+    document.getElementById("checkinOverview").style.display = "block";
+  }
+
+  const CHECKIN_FORM_FIELDS = [
+    ["ciProtein", "Protein"], ["ciFats", "Fats"], ["ciCarbs", "Carbs"],
+    ["ciMenstrualPhase", "Menstrual Phase"],
+    ["ciSteps", "Daily Steps"], ["ciLiss", "LISS Cardio"], ["ciNeat", "NEAT"],
+    ["ciSleepHours", "Sleep Hours"], ["ciSleepQuality", "Sleep Quality"],
+    ["ciDailyEnergy", "Daily Energy"], ["ciTrainingEnergy", "Training Energy"], ["ciStress", "Stress"],
+    ["ciLibido", "Libido"], ["ciFocus", "Focus"], ["ciSoreness", "Soreness"],
+    ["ciStoolType", "Stool Type"], ["ciStoolColour", "Stool Colour"],
+    ["ciWater", "Water"], ["ciHunger", "Hunger"],
+    ["ciWeight", "Weight"], ["ciBodyFat", "Body Fat %"],
+    ["ciBust", "Bust"], ["ciWaist", "Waist"], ["ciHips", "Hips"], ["ciThighs", "Thighs"], ["ciArms", "Arms"]
+  ];
+
+  function clearCheckinForm() {
+    CHECKIN_FORM_FIELDS.forEach(([id]) => { document.getElementById(id).value = ""; });
+    document.getElementById("ciWorkoutType").value = "";
+    document.getElementById("ciWorkoutCustom").value = "";
+    document.getElementById("ciWorkoutCustomWrap").style.display = "none";
+    document.getElementById("ciEnergyCrash").value = "";
+  }
+
+  // If the picked date already has a saved entry, pre-fill the form with
+  // it so editing a missed/wrong day updates it rather than creating a
+  // second entry for the same date.
+  function loadExistingCheckinForDate() {
+    const dateInput = document.getElementById("ciDate").value; // YYYY-MM-DD
+    if (!dateInput) return;
+
+    const picked = parseDate(dateInput);
+    const existing = (clientData.dailyCheckins || []).find(r => {
+      const d = parseDate(r["Date"]);
+      return d && picked && d.toDateString() === picked.toDateString();
+    });
+
+    const note = document.getElementById("ciExistingNote");
+    clearCheckinForm();
+
+    if (!existing) {
+      note.style.display = "none";
+      return;
+    }
+
+    note.style.display = "block";
+    CHECKIN_FORM_FIELDS.forEach(([id, field]) => {
+      const val = existing[field];
+      if (val !== undefined && val !== null && val !== "") {
+        document.getElementById(id).value = val;
+      }
+    });
+
+    // Workout Input is either Low/Med/High or a raw smartwatch number
+    const workoutRaw = existing["Workout Input"];
+    if (workoutRaw === "Low" || workoutRaw === "Med" || workoutRaw === "High") {
+      document.getElementById("ciWorkoutType").value = workoutRaw;
+      document.getElementById("ciWorkoutCustomWrap").style.display = "none";
+    } else if (workoutRaw !== undefined && workoutRaw !== null && workoutRaw !== "") {
+      document.getElementById("ciWorkoutType").value = "custom";
+      document.getElementById("ciWorkoutCustom").value = workoutRaw;
+      document.getElementById("ciWorkoutCustomWrap").style.display = "block";
+    } else {
+      document.getElementById("ciWorkoutType").value = "";
+    }
+
+    if (existing["Energy Crash"]) {
+      document.getElementById("ciEnergyCrash").value = existing["Energy Crash"];
+    }
+  }
+
+  async function submitCheckin() {
+    const dateVal = document.getElementById("ciDate").value;
+    if (!dateVal) {
+      showCheckinSubmitMsg("Pick a date first.", true);
+      return;
+    }
+
+    const submitBtn = document.getElementById("ciSubmitBtn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving...";
+    showCheckinSubmitMsg("", false);
+    showLoading("Saving check-in...");
+
+    const workoutType = document.getElementById("ciWorkoutType").value;
+    const workoutValue = workoutType === "custom"
+      ? document.getElementById("ciWorkoutCustom").value
+      : workoutType;
+
+    const payload = {
+      action: "saveCheckin",
+      email: currentEmail,
+      passcode: currentPasscode,
+      date: dateVal,
+      protein: document.getElementById("ciProtein").value,
+      fats: document.getElementById("ciFats").value,
+      carbs: document.getElementById("ciCarbs").value,
+      menstrualPhase: document.getElementById("ciMenstrualPhase").value,
+      steps: document.getElementById("ciSteps").value,
+      workout: workoutValue,
+      liss: document.getElementById("ciLiss").value,
+      neat: document.getElementById("ciNeat").value,
+      sleepHours: document.getElementById("ciSleepHours").value,
+      sleepQuality: document.getElementById("ciSleepQuality").value,
+      dailyEnergy: document.getElementById("ciDailyEnergy").value,
+      trainingEnergy: document.getElementById("ciTrainingEnergy").value,
+      stress: document.getElementById("ciStress").value,
+      libido: document.getElementById("ciLibido").value,
+      focus: document.getElementById("ciFocus").value,
+      soreness: document.getElementById("ciSoreness").value,
+      energyCrash: document.getElementById("ciEnergyCrash").value,
+      stoolType: document.getElementById("ciStoolType").value,
+      stoolColour: document.getElementById("ciStoolColour").value,
+      water: document.getElementById("ciWater").value,
+      hunger: document.getElementById("ciHunger").value,
+      weight: document.getElementById("ciWeight").value,
+      bodyFat: document.getElementById("ciBodyFat").value,
+      bust: document.getElementById("ciBust").value,
+      waist: document.getElementById("ciWaist").value,
+      hips: document.getElementById("ciHips").value,
+      thighs: document.getElementById("ciThighs").value,
+      arms: document.getElementById("ciArms").value
+    };
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        showCheckinSubmitMsg(data.error, true);
+      } else {
+        showCheckinSubmitMsg("Saved!", false);
+        await refreshClientData();
+        setTimeout(() => { renderCheckinsTab(); }, 700);
+      }
+    } catch (err) {
+      showCheckinSubmitMsg("Couldn't save — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Save Check-In";
+      hideLoading();
+    }
+  }
+
+  function showCheckinSubmitMsg(text, isError) {
+    const msg = document.getElementById("ciSubmitMsg");
+    msg.textContent = text;
+    msg.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+  }
+
+  // Re-fetches this client's full data after a save, so every chart/summary
+  // reflects the new entry immediately without a full logout/login.
+  async function refreshClientData() {
+    const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.error) {
+      clientData = data;
+      renderDashboard();
+    }
   }
 </script>
 
