@@ -1328,6 +1328,50 @@
   // Builds a legend as regular HTML, sitting outside the scrolling chart
   // canvas — Chart.js's built-in legend is part of the canvas itself, so it
   // would otherwise scroll out of view along with a wide chart.
+  // ---------- Highest/Lowest point-of-interest tiles (Check-Ins) ----------
+  function computeMinMax(weeklyRows, field) {
+    let maxVal = null, maxRow = null, minVal = null, minRow = null;
+    weeklyRows.forEach(r => {
+      const raw = r[field];
+      if (raw === "" || raw === undefined || raw === null || isNaN(raw)) return;
+      const num = Number(raw);
+      if (maxVal === null || num > maxVal) { maxVal = num; maxRow = r; }
+      if (minVal === null || num < minVal) { minVal = num; minRow = r; }
+    });
+    return { maxVal, maxRow, minVal, minRow };
+  }
+
+  // showBoth=true shows Highest+Lowest tiles; false shows just Highest
+  // (useful for things like LISS Cardio where a "lowest" of 0 isn't a
+  // meaningful highlight). maxLabel/minLabel let a chart phrase these
+  // positively (e.g. "Lowest Stress" as a good thing, not a low point).
+  function renderMinMaxTiles(containerId, weeklyRows, field, unit, decimals, showBoth, maxLabel, minLabel) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const { maxVal, maxRow, minVal, minRow } = computeMinMax(weeklyRows, field);
+    if (maxVal === null) { container.innerHTML = ""; container.style.display = "none"; return; }
+    container.style.display = "flex";
+
+    let html = `
+      <div class="pr-tile">
+        <div class="pr-label">${maxLabel || "Highest"}</div>
+        <div class="pr-value">${roundTo(maxVal, decimals)}${unit || ""}</div>
+        <div class="pr-date">${formatDMY(toCheckinWeekDate(maxRow))}</div>
+      </div>`;
+
+    if (showBoth) {
+      html += `
+      <div class="pr-tile">
+        <div class="pr-label">${minLabel || "Lowest"}</div>
+        <div class="pr-value">${roundTo(minVal, decimals)}${unit || ""}</div>
+        <div class="pr-date">${formatDMY(toCheckinWeekDate(minRow))}</div>
+      </div>`;
+    }
+
+    container.innerHTML = html;
+  }
+
   function renderCustomLegend(canvasId, items) {
     const container = document.getElementById(canvasId + "Legend");
     if (!container) return; // not every chart has one (e.g. single-line charts elsewhere)
@@ -1751,9 +1795,11 @@
 
     if (category === "nutrition") {
       content.innerHTML =
+        `<div class="pr-row" id="caloriesMinMax"></div>` +
         scrollChart("checkinCaloriesChart", "Calories vs target") +
         scrollChart("checkinMacrosChart", "Macros (g)");
       applyScrollWidth("checkinCaloriesChart", "checkinMacrosChart");
+      renderMinMaxTiles("caloriesMinMax", weeklyRows, "Calories", "", 0, true, "Highest Calories", "Lowest Calories");
       renderMultiLineChart("checkinCaloriesChart", labels, [
         { label: "Calories", data: weeklyRows.map(r => roundTo(Number(r["Calories"]) || 0, 0)), color: "#d4a24c" },
         { label: "Target", data: weeklyRows.map(r => roundTo(Number(r["Calorie Target"]) || 0, 0)), color: "#7aa2ff", dashed: true }
@@ -1774,11 +1820,15 @@
           <option value="Thighs">Thighs (cm)</option>
           <option value="Arms">Arms (cm)</option>
         </select>
+        <div class="pr-row" id="measurementMinMax"></div>
       ` + scrollChart("checkinMeasurementChart");
       applyScrollWidth("checkinMeasurementChart");
       const select = document.getElementById("measurementSelect");
+      const measurementUnits = { "Weight": "kg", "Body Fat %": "%", "Bust": "cm", "Waist": "cm", "Hips": "cm", "Thighs": "cm", "Arms": "cm" };
       const renderMeasurement = () => {
         const field = select.value;
+        const unit = measurementUnits[field] || "";
+        renderMinMaxTiles("measurementMinMax", weeklyRows, field, unit, 1, true, `Highest ${field}`, `Lowest ${field}`);
         renderSingleLineChart("checkinMeasurementChart", labels,
           weeklyRows.map(r => (r[field] !== "" && r[field] !== undefined) ? roundTo(Number(r[field]), 1) : null), field);
       };
@@ -1786,9 +1836,13 @@
       renderMeasurement();
     } else if (category === "expenditure") {
       content.innerHTML =
+        `<div class="pr-row" id="expenditureMinMax"></div>` +
         scrollChart("checkinExpenditureChart", "Total expenditure") +
+        `<div class="pr-row" id="lissMinMax"></div>` +
         scrollChart("checkinNeatLissChart", "NEAT &amp; LISS cardio");
       applyScrollWidth("checkinExpenditureChart", "checkinNeatLissChart");
+      renderMinMaxTiles("expenditureMinMax", weeklyRows, "Total Expenditure", " kcal", 0, true, "Highest Expenditure", "Lowest Expenditure");
+      renderMinMaxTiles("lissMinMax", weeklyRows, "LISS Cardio", "", 0, false, "Highest LISS Cardio");
       renderSingleLineChart("checkinExpenditureChart", labels,
         weeklyRows.map(r => roundTo(Number(r["Total Expenditure"]) || 0, 0)), "kcal");
       renderMultiLineChart("checkinNeatLissChart", labels, [
@@ -1796,16 +1850,23 @@
         { label: "LISS Cardio", data: weeklyRows.map(r => roundTo(Number(r["LISS Cardio"]) || 0, 0)), color: "#b6402c" }
       ]);
     } else if (category === "sleep") {
-      content.innerHTML = scrollChart("checkinSleepChart");
+      content.innerHTML =
+        `<div class="pr-row" id="sleepMinMax"></div>` +
+        scrollChart("checkinSleepChart");
       applyScrollWidth("checkinSleepChart");
+      renderMinMaxTiles("sleepMinMax", weeklyRows, "Sleep Hours", "h", 1, true, "Most Sleep", "Least Sleep");
       renderDualAxisGenericChart("checkinSleepChart", labels,
         weeklyRows.map(r => roundTo(Number(r["Sleep Hours"]) || 0, 1)), "Hours",
         weeklyRows.map(r => roundTo(Number(r["Sleep Quality"]) || 0, 1)), "Quality (1-5)");
     } else if (category === "mood") {
       content.innerHTML =
+        `<div class="pr-row" id="energyMinMax"></div>` +
         scrollChart("checkinEnergyChart", "Energy") +
+        `<div class="pr-row" id="stressMinMax"></div>` +
         scrollChart("checkinWellbeingChart", "Stress, Libido, Focus &amp; Soreness");
       applyScrollWidth("checkinEnergyChart", "checkinWellbeingChart");
+      renderMinMaxTiles("energyMinMax", weeklyRows, "Daily Energy", "/5", 1, false, "Best Energy Week");
+      renderMinMaxTiles("stressMinMax", weeklyRows, "Stress", "/5", 1, false, "Highest Stress Week");
       renderMultiLineChart("checkinEnergyChart", labels, [
         { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" },
         { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" }
