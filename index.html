@@ -433,11 +433,13 @@
 
     <div class="chart-card">
       <h3>Weekly volume</h3>
+      <div class="pr-row" id="volumeMinMax"></div>
       <canvas id="volumeChart"></canvas>
     </div>
 
     <div class="chart-card">
       <h3>Weekly wRPE</h3>
+      <div class="pr-row" id="wrpeMinMax"></div>
       <canvas id="wrpeChart"></canvas>
     </div>
 
@@ -476,11 +478,13 @@
 
     <div class="chart-card">
       <h3>Volume trend across blocks (per wave)</h3>
+      <div class="pr-row" id="macroVolumeMinMax"></div>
       <div class="chart-scroll"><div class="chart-scroll-inner" id="macroVolumeChartWrap"><canvas id="macroVolumeChart"></canvas></div></div>
     </div>
 
     <div class="chart-card">
       <h3>wRPE trend across blocks (per wave)</h3>
+      <div class="pr-row" id="macroWrpeMinMax"></div>
       <div class="chart-scroll"><div class="chart-scroll-inner" id="macroWrpeChartWrap"><canvas id="macroWrpeChart"></canvas></div></div>
     </div>
 
@@ -1075,6 +1079,9 @@
 
     renderLatestWeekSummary(blockId, latestRow["Week"]);
 
+    renderMinMaxTiles("volumeMinMax", blockWeeks, "Total Volume", "", 0, true, "Highest Volume Week", "Lowest Volume Week", toDate);
+    renderMinMaxTiles("wrpeMinMax", blockWeeks, "wRPE", "", 1, true, "Peak Stress Week", "Lightest Week", toDate);
+
     const labels = blockWeeks.map(r => r["Week"] || formatDMY(toDate(r)));
 
     renderLineChart("volumeChart", "volumeChartInstance", labels,
@@ -1346,7 +1353,8 @@
   // (useful for things like LISS Cardio where a "lowest" of 0 isn't a
   // meaningful highlight). maxLabel/minLabel let a chart phrase these
   // positively (e.g. "Lowest Stress" as a good thing, not a low point).
-  function renderMinMaxTiles(containerId, weeklyRows, field, unit, decimals, showBoth, maxLabel, minLabel) {
+  function renderMinMaxTiles(containerId, weeklyRows, field, unit, decimals, showBoth, maxLabel, minLabel, dateFn) {
+    dateFn = dateFn || toCheckinWeekDate;
     const container = document.getElementById(containerId);
     if (!container) return;
 
@@ -1358,7 +1366,7 @@
       <div class="pr-tile">
         <div class="pr-label">${maxLabel || "Highest"}</div>
         <div class="pr-value">${roundTo(maxVal, decimals)}${unit || ""}</div>
-        <div class="pr-date">${formatDMY(toCheckinWeekDate(maxRow))}</div>
+        <div class="pr-date">${formatDMY(dateFn(maxRow))}</div>
       </div>`;
 
     if (showBoth) {
@@ -1366,7 +1374,7 @@
       <div class="pr-tile">
         <div class="pr-label">${minLabel || "Lowest"}</div>
         <div class="pr-value">${roundTo(minVal, decimals)}${unit || ""}</div>
-        <div class="pr-date">${formatDMY(toCheckinWeekDate(minRow))}</div>
+        <div class="pr-date">${formatDMY(dateFn(minRow))}</div>
       </div>`;
     }
 
@@ -1518,6 +1526,9 @@
     const macroWidth = Math.max(320, waves.length * 65) + "px";
     document.getElementById("macroVolumeChartWrap").style.minWidth = macroWidth;
     document.getElementById("macroWrpeChartWrap").style.minWidth = macroWidth;
+
+    renderMinMaxTiles("macroVolumeMinMax", waves, "avgVolume", "", 0, true, "Highest Volume Wave", "Lowest Volume Wave", w => w.date);
+    renderMinMaxTiles("macroWrpeMinMax", waves, "avgWrpe", "", 1, true, "Peak Stress Wave", "Lightest Wave", w => w.date);
 
     renderMacroChart("macroVolumeChart", "macroVolumeChartInstance", labels,
       waves.map(w => w.avgVolume), "Avg Volume", "#d4a24c", fullBlockNames, "integer");
