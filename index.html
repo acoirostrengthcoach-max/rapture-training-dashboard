@@ -1335,6 +1335,7 @@
       const raw = r[field];
       if (raw === "" || raw === undefined || raw === null || isNaN(raw)) return;
       const num = Number(raw);
+      if (num === 0) return; // treat 0 as an unentered field, not a genuine logged value
       if (maxVal === null || num > maxVal) { maxVal = num; maxRow = r; }
       if (minVal === null || num < minVal) { minVal = num; minRow = r; }
     });
@@ -1866,7 +1867,7 @@
         scrollChart("checkinWellbeingChart", "Stress, Libido, Focus &amp; Soreness");
       applyScrollWidth("checkinEnergyChart", "checkinWellbeingChart");
       renderMinMaxTiles("energyMinMax", weeklyRows, "Daily Energy", "/5", 1, false, "Best Energy Week");
-      renderMinMaxTiles("stressMinMax", weeklyRows, "Stress", "/5", 1, false, "Highest Stress Week");
+      renderMinMaxTiles("stressMinMax", weeklyRows, "Stress", "/5", 1, true, "Best Stress Score", "Toughest Week");
       renderMultiLineChart("checkinEnergyChart", labels, [
         { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" },
         { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" }
