@@ -155,7 +155,7 @@
     border: none; cursor: pointer; white-space: nowrap;
     font-weight: 600; transition: color 0.2s ease;
   }
-  .tab-icon { font-size: 19px; line-height: 1; }
+  .tab-icon-svg { width: 21px; height: 21px; }
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--accent); }
   .tab-panel { display: none; }
@@ -355,6 +355,15 @@
   .checkin-form-msg.success { color: var(--accent); }
   .checkin-form-msg.error { color: var(--error); }
 
+  .date-nav-row { display: flex; gap: 8px; align-items: center; }
+  .date-nav-row input[type="date"] { flex: 1; }
+  .day-nav-btn {
+    background: var(--card2); color: var(--muted); border: 1px solid var(--border);
+    padding: 10px 10px; font-size: 11px; font-weight: 600; border-radius: 8px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .day-nav-btn:hover { color: var(--text); border-color: var(--accent-dim); }
+
   .coach-grid {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 12px;
@@ -473,11 +482,26 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="currentBlock"><span class="tab-icon">💪</span>Current</button>
-    <button class="tab" data-tab="latestWeek"><span class="tab-icon">📅</span>Week</button>
-    <button class="tab" data-tab="allBlocks"><span class="tab-icon">📊</span>Blocks</button>
-    <button class="tab" data-tab="exerciseHistory"><span class="tab-icon">📈</span>History</button>
-    <button class="tab" data-tab="checkins"><span class="tab-icon">📋</span>Check-In</button>
+    <button class="tab active" data-tab="currentBlock">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9v6M3 10v4M18 9v6M21 10v4M6 12h12"/></svg>
+      Current
+    </button>
+    <button class="tab" data-tab="latestWeek">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="1"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M12 13.5l1.2 1.8L15 13"/></svg>
+      Week
+    </button>
+    <button class="tab" data-tab="allBlocks">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M11 20V4M18 20v-7"/></svg>
+      Blocks
+    </button>
+    <button class="tab" data-tab="exerciseHistory">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-6 4 3 6-8"/><circle cx="4" cy="16" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="13" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.2" fill="currentColor" stroke="none"/></svg>
+      History
+    </button>
+    <button class="tab" data-tab="checkins">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="1.2"/><path d="M9 3.5h6v2H9z"/><path d="M8.5 12.5l2 2 4-4.5"/></svg>
+      Check-In
+    </button>
   </div>
 
   <div class="tab-panel active" id="panel-currentBlock">
@@ -662,7 +686,11 @@
 
       <div class="form-field">
         <label for="ciDate">Date</label>
-        <input type="date" id="ciDate">
+        <div class="date-nav-row">
+          <button class="day-nav-btn" id="ciPrevDayBtn" type="button">← Prev Day</button>
+          <input type="date" id="ciDate">
+          <button class="day-nav-btn" id="ciNextDayBtn" type="button">Next Day →</button>
+        </div>
         <div class="checkin-form-msg" id="ciExistingNote" style="display:none;">Editing an existing entry for this date — saving will update it.</div>
       </div>
 
@@ -2247,6 +2275,8 @@
     };
     document.getElementById("checkinFormBackBtn").onclick = closeCheckinForm;
     document.getElementById("ciDate").onchange = loadExistingCheckinForDate;
+    document.getElementById("ciPrevDayBtn").onclick = () => shiftCheckinDate(-1);
+    document.getElementById("ciNextDayBtn").onclick = () => shiftCheckinDate(1);
     document.getElementById("ciWorkoutType").onchange = () => {
       const isCustom = document.getElementById("ciWorkoutType").value === "custom";
       document.getElementById("ciWorkoutCustomWrap").style.display = isCustom ? "block" : "none";
@@ -2257,6 +2287,18 @@
       document.getElementById("ciLissCustomWrap").style.display = (val === "custom") ? "block" : "none";
     };
     document.getElementById("ciSubmitBtn").onclick = submitCheckin;
+  }
+
+  // Moves the date picker by ±1 day and reloads the form for that new
+  // date — lets a client fill in a whole week in one sitting without
+  // backing out to the overview between each day.
+  function shiftCheckinDate(deltaDays) {
+    const dateInput = document.getElementById("ciDate");
+    const current = new Date(dateInput.value);
+    current.setDate(current.getDate() + deltaDays);
+    dateInput.value = current.toISOString().split("T")[0];
+    loadExistingCheckinForDate();
+    showCheckinSubmitMsg("", false);
   }
 
   function openCheckinForm() {
@@ -2449,10 +2491,21 @@
       if (data.error) {
         showCheckinSubmitMsg(data.error, true);
       } else {
-        showCheckinSubmitMsg("Saved!", false);
         if (data.debug) console.log("Check-in expenditure debug:", data.debug);
+        const savedDate = document.getElementById("ciDate").value;
+
+        // Refreshing triggers a full dashboard re-render, which resets the
+        // Check-Ins tab back to its overview screen — so re-open the form
+        // on the same date afterward, now correctly reflecting the saved entry.
         await refreshClientData();
-        setTimeout(() => { renderCheckinsTab(); }, 700);
+
+        document.getElementById("checkinOverview").style.display = "none";
+        document.getElementById("checkinDetail").style.display = "none";
+        document.getElementById("checkinForm").style.display = "block";
+        document.getElementById("ciDate").value = savedDate;
+        loadExistingCheckinForDate();
+        showCheckinSubmitMsg("Saved ✓ — use Prev/Next Day to keep going, or go back when done.", false);
+        requestAnimationFrame(resizeAllCharts);
       }
     } catch (err) {
       showCheckinSubmitMsg("Couldn't save — check your connection and try again.", true);
