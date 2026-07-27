@@ -2445,11 +2445,59 @@
     }
   }
 
+  // Sensible min/max per field — blank is always fine, only checks values
+  // the client actually typed in. [min, max, label shown in the error]
+  const CHECKIN_VALIDATION_RANGES = {
+    ciProtein: [0, 1000, "Protein (g)"],
+    ciFats: [0, 1000, "Fats (g)"],
+    ciCarbs: [0, 1000, "Carbs (g)"],
+    ciSteps: [0, 100000, "Daily Steps"],
+    ciNeat: [0, 5000, "NEAT"],
+    ciWorkoutCustom: [0, 5000, "Workout kcal"],
+    ciLissDuration: [0, 600, "LISS Duration (minutes)"],
+    ciLissCustom: [0, 5000, "LISS Cardio kcal"],
+    ciWater: [0, 20, "Water (L)"],
+    ciSleepHours: [0, 24, "Sleep Hours"],
+    ciWeight: [20, 400, "Weight (kg)"],
+    ciBodyFat: [0, 100, "Body Fat %"],
+    ciBust: [0, 300, "Bust (cm)"],
+    ciWaist: [0, 300, "Waist (cm)"],
+    ciHips: [0, 300, "Hips (cm)"],
+    ciThighs: [0, 300, "Thighs (cm)"],
+    ciArms: [0, 300, "Arms (cm)"],
+    ciStoolType: [1, 7, "Stool Type"]
+  };
+
+  function validateCheckinForm() {
+    for (const id in CHECKIN_VALIDATION_RANGES) {
+      const [min, max, label] = CHECKIN_VALIDATION_RANGES[id];
+      const val = document.getElementById(id).value;
+      if (val === "") continue; // blank is always fine
+      const num = Number(val);
+      if (isNaN(num) || num < min || num > max) {
+        return `${label} should be between ${min} and ${max}.`;
+      }
+    }
+    return null;
+  }
+
   async function submitCheckin() {
     const dateVal = document.getElementById("ciDate").value;
     if (!dateVal) {
       showCheckinSubmitMsg("Pick a date first.", true);
       return;
+    }
+
+    const validationError = validateCheckinForm();
+    if (validationError) {
+      showCheckinSubmitMsg(validationError, true);
+      return;
+    }
+
+    const isExisting = document.getElementById("ciExistingNote").style.display !== "none";
+    if (isExisting) {
+      const confirmed = confirm(`This will overwrite the existing check-in for ${dateVal}. Continue?`);
+      if (!confirmed) return;
     }
 
     const submitBtn = document.getElementById("ciSubmitBtn");
