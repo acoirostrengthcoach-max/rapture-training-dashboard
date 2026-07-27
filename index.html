@@ -2342,6 +2342,7 @@
         showCheckinSubmitMsg(data.error, true);
       } else {
         showCheckinSubmitMsg("Saved!", false);
+        if (data.debug) console.log("Check-in expenditure debug:", data.debug);
         await refreshClientData();
         setTimeout(() => { renderCheckinsTab(); }, 700);
       }
