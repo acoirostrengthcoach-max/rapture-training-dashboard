@@ -632,7 +632,6 @@
         <h3>Expenditure</h3>
         <div class="form-grid">
           <div class="form-field"><label>Daily Steps</label><input type="number" id="ciSteps"></div>
-          <div class="form-field"><label>LISS Cardio (min)</label><input type="number" id="ciLiss"></div>
           <div class="form-field"><label>NEAT</label><input type="number" id="ciNeat"></div>
         </div>
         <div class="form-field">
@@ -648,6 +647,28 @@
         <div class="form-field" id="ciWorkoutCustomWrap" style="display:none;">
           <label>Workout kcal</label>
           <input type="number" id="ciWorkoutCustom">
+        </div>
+
+        <div class="form-field">
+          <label>LISS Cardio Type</label>
+          <select id="ciLissType">
+            <option value="">—</option>
+            <option value="walking">Walking</option>
+            <option value="incline_walking">Incline Walking</option>
+            <option value="cycling">Cycling</option>
+            <option value="swimming">Swimming</option>
+            <option value="rowing">Rowing</option>
+            <option value="elliptical">Elliptical</option>
+            <option value="custom">I know my exact kcal (e.g. from a smartwatch)</option>
+          </select>
+        </div>
+        <div class="form-field" id="ciLissDurationWrap" style="display:none;">
+          <label>Duration (minutes)</label>
+          <input type="number" id="ciLissDuration">
+        </div>
+        <div class="form-field" id="ciLissCustomWrap" style="display:none;">
+          <label>LISS Cardio kcal</label>
+          <input type="number" id="ciLissCustom">
         </div>
       </div>
 
@@ -2145,6 +2166,11 @@
       const isCustom = document.getElementById("ciWorkoutType").value === "custom";
       document.getElementById("ciWorkoutCustomWrap").style.display = isCustom ? "block" : "none";
     };
+    document.getElementById("ciLissType").onchange = () => {
+      const val = document.getElementById("ciLissType").value;
+      document.getElementById("ciLissDurationWrap").style.display = (val && val !== "custom") ? "block" : "none";
+      document.getElementById("ciLissCustomWrap").style.display = (val === "custom") ? "block" : "none";
+    };
     document.getElementById("ciSubmitBtn").onclick = submitCheckin;
   }
 
@@ -2168,7 +2194,7 @@
   const CHECKIN_FORM_FIELDS = [
     ["ciProtein", "Protein"], ["ciFats", "Fats"], ["ciCarbs", "Carbs"],
     ["ciMenstrualPhase", "Menstrual Phase"],
-    ["ciSteps", "Daily Steps"], ["ciLiss", "LISS Cardio"], ["ciNeat", "NEAT"],
+    ["ciSteps", "Daily Steps"], ["ciNeat", "NEAT"],
     ["ciSleepHours", "Sleep Hours"], ["ciSleepQuality", "Sleep Quality"],
     ["ciDailyEnergy", "Daily Energy"], ["ciTrainingEnergy", "Training Energy"], ["ciStress", "Stress"],
     ["ciLibido", "Libido"], ["ciFocus", "Focus"], ["ciSoreness", "Soreness"],
@@ -2184,6 +2210,11 @@
     document.getElementById("ciWorkoutCustom").value = "";
     document.getElementById("ciWorkoutCustomWrap").style.display = "none";
     document.getElementById("ciEnergyCrash").value = "";
+    document.getElementById("ciLissType").value = "";
+    document.getElementById("ciLissDuration").value = "";
+    document.getElementById("ciLissCustom").value = "";
+    document.getElementById("ciLissDurationWrap").style.display = "none";
+    document.getElementById("ciLissCustomWrap").style.display = "none";
   }
 
   // If the picked date already has a saved entry, pre-fill the form with
@@ -2231,6 +2262,17 @@
     if (existing["Energy Crash"]) {
       document.getElementById("ciEnergyCrash").value = existing["Energy Crash"];
     }
+
+    // LISS Cardio is stored as a final kcal number — we can't recover the
+    // original type/duration that produced it, so editing shows it as
+    // a "known kcal" value rather than guessing a type.
+    const lissVal = existing["LISS Cardio"];
+    if (lissVal !== undefined && lissVal !== null && lissVal !== "") {
+      document.getElementById("ciLissType").value = "custom";
+      document.getElementById("ciLissCustom").value = lissVal;
+      document.getElementById("ciLissCustomWrap").style.display = "block";
+      document.getElementById("ciLissDurationWrap").style.display = "none";
+    }
   }
 
   async function submitCheckin() {
@@ -2262,7 +2304,9 @@
       menstrualPhase: document.getElementById("ciMenstrualPhase").value,
       steps: document.getElementById("ciSteps").value,
       workout: workoutValue,
-      liss: document.getElementById("ciLiss").value,
+      lissType: document.getElementById("ciLissType").value === "custom" ? "" : document.getElementById("ciLissType").value,
+      lissDuration: document.getElementById("ciLissDuration").value,
+      lissCustom: document.getElementById("ciLissType").value === "custom" ? document.getElementById("ciLissCustom").value : "",
       neat: document.getElementById("ciNeat").value,
       sleepHours: document.getElementById("ciSleepHours").value,
       sleepQuality: document.getElementById("ciSleepQuality").value,
