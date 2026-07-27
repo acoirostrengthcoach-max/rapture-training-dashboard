@@ -8,6 +8,9 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0908">
 <link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Metal+Mania&display=swap" rel="stylesheet">
 
 <!-- iOS-specific tags so "Add to Home Screen" behaves like a real app -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -60,8 +63,17 @@
     padding: 32px;
   }
   .logo-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
-  .logo-wrap img { width: 112px; height: 112px; border-radius: 50%; }
-  .card h1 { font-size: 19px; margin: 0 0 4px; text-align: center; letter-spacing: 0.3px; }
+  .logo-wrap img {
+    width: 148px; height: 148px; border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--accent-dim), 0 8px 28px rgba(0,0,0,0.6);
+  }
+  .card h1 {
+    font-family: "Metal Mania", "Segoe UI", sans-serif;
+    font-size: 26px; font-weight: 400; margin: 4px 0 6px;
+    text-align: center; letter-spacing: 1.2px;
+    color: var(--accent);
+    text-shadow: 0 0 14px rgba(212,162,76,0.35);
+  }
   .card p.sub { color: var(--muted); font-size: 13px; margin: 0 0 28px; text-align: center; }
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   input {
@@ -357,6 +369,14 @@
 
   .date-nav-row { display: flex; gap: 8px; align-items: center; }
   .date-nav-row input[type="date"] { flex: 1; }
+  .date-nav-row input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(72%) sepia(37%) saturate(438%) hue-rotate(357deg) brightness(96%) contrast(92%);
+    cursor: pointer;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(72%) sepia(37%) saturate(438%) hue-rotate(357deg) brightness(96%) contrast(92%);
+    cursor: pointer;
+  }
   .day-nav-btn {
     background: var(--card2); color: var(--muted); border: 1px solid var(--border);
     padding: 10px 10px; font-size: 11px; font-weight: 600; border-radius: 8px;
