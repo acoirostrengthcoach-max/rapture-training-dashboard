@@ -36,7 +36,12 @@
     background: var(--bg);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    scrollbar-width: thin; scrollbar-color: var(--accent-dim) var(--bg);
   }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
   /* ---------- Login ---------- */
   #loginScreen {
@@ -78,7 +83,7 @@
   .msg.error { color: var(--error); }
 
   /* ---------- Dashboard shell ---------- */
-  #dashboard { display: none; max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; }
+  #dashboard { display: none; max-width: 640px; margin: 0 auto; padding: 20px 16px calc(90px + env(safe-area-inset-bottom, 0px)); }
   .topbar {
     display: flex; justify-content: space-between; align-items: center;
     padding: 8px 0 20px;
@@ -138,16 +143,21 @@
 
   /* ---------- Tabs ---------- */
   .tabs {
-    display: flex; gap: 6px; margin-bottom: 22px; border-bottom: 1px solid var(--border);
-    overflow-x: auto;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+    display: flex; justify-content: space-around;
+    background: var(--card); border-top: 1px solid var(--border);
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+    max-width: 640px; margin: 0 auto;
   }
   .tab {
-    padding: 10px 14px; font-size: 13px; color: var(--muted); background: transparent;
-    border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap;
-    font-weight: 600; transition: color 0.2s ease, border-color 0.2s ease;
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 4px 2px; font-size: 10px; color: var(--muted); background: transparent;
+    border: none; cursor: pointer; white-space: nowrap;
+    font-weight: 600; transition: color 0.2s ease;
   }
+  .tab-icon { font-size: 19px; line-height: 1; }
   .tab:hover { color: var(--text); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab.active { color: var(--accent); }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; animation: tab-fade-in 0.25s ease; }
   @keyframes tab-fade-in {
@@ -325,6 +335,16 @@
   .bristol-row { margin-bottom: 6px; line-height: 1.4; }
   .bristol-row b { color: var(--accent); margin-right: 4px; }
   .bristol-link { display: inline-block; margin-top: 6px; font-size: 11px; color: var(--accent); }
+
+  .targets-card {
+    background: var(--card); border: 1px solid var(--accent-dim); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 16px;
+  }
+  .targets-card-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .targets-row { display: flex; justify-content: space-between; gap: 8px; }
+  .target-stat { flex: 1; text-align: center; }
+  .target-stat b { display: block; font-size: 16px; color: var(--accent); font-weight: 700; }
+  .target-stat span { font-size: 10px; color: var(--muted); }
   .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-bottom: 4px; }
   .checkin-form-section {
     background: var(--card); border: 1px solid var(--border); border-radius: 14px;
@@ -453,11 +473,11 @@
   </div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="currentBlock">Current Block</button>
-    <button class="tab" data-tab="latestWeek">Latest Week</button>
-    <button class="tab" data-tab="allBlocks">All Blocks</button>
-    <button class="tab" data-tab="exerciseHistory">Exercise History</button>
-    <button class="tab" data-tab="checkins">Check-Ins</button>
+    <button class="tab active" data-tab="currentBlock"><span class="tab-icon">💪</span>Current</button>
+    <button class="tab" data-tab="latestWeek"><span class="tab-icon">📅</span>Week</button>
+    <button class="tab" data-tab="allBlocks"><span class="tab-icon">📊</span>Blocks</button>
+    <button class="tab" data-tab="exerciseHistory"><span class="tab-icon">📈</span>History</button>
+    <button class="tab" data-tab="checkins"><span class="tab-icon">📋</span>Check-In</button>
   </div>
 
   <div class="tab-panel active" id="panel-currentBlock">
@@ -581,6 +601,16 @@
     <div id="checkinOverview">
       <h2 class="block-title">Check-Ins</h2>
       <p class="block-sub"><span id="latestCheckinDateLabel"></span></p>
+
+      <div class="targets-card" id="targetsCard" style="display:none;">
+        <div class="targets-card-label">Your Targets</div>
+        <div class="targets-row">
+          <div class="target-stat"><b id="targetCalories">—</b><span>kcal</span></div>
+          <div class="target-stat"><b id="targetProtein">—</b><span>protein</span></div>
+          <div class="target-stat"><b id="targetFat">—</b><span>fat</span></div>
+          <div class="target-stat"><b id="targetCarb">—</b><span>carbs</span></div>
+        </div>
+      </div>
 
       <button class="full" id="logCheckinBtn" style="margin-bottom:18px;">+ Log a Check-In</button>
 
@@ -1877,12 +1907,27 @@
   // ---------- Check-Ins tab ----------
   function renderCheckinsTab() {
     renderLatestCheckin();
+    renderTargetsCard();
     wireCheckinTiles();
     initCheckinForm();
     // Reset to overview whenever the dashboard re-renders (e.g. switching clients as coach)
     document.getElementById("checkinDetail").style.display = "none";
     document.getElementById("checkinForm").style.display = "none";
     document.getElementById("checkinOverview").style.display = "block";
+  }
+
+  // Coach-set nutrition targets, shown at a glance so clients don't need
+  // to dig through the spreadsheet to remember what they're aiming for.
+  function renderTargetsCard() {
+    const card = document.getElementById("targetsCard");
+    const hasAnyTarget = clientData.calorieTarget || clientData.proteinTarget || clientData.fatTarget || clientData.carbTarget;
+    if (!hasAnyTarget) { card.style.display = "none"; return; }
+
+    card.style.display = "block";
+    document.getElementById("targetCalories").textContent = clientData.calorieTarget || "—";
+    document.getElementById("targetProtein").textContent = clientData.proteinTarget ? clientData.proteinTarget + "g" : "—";
+    document.getElementById("targetFat").textContent = clientData.fatTarget ? clientData.fatTarget + "g" : "—";
+    document.getElementById("targetCarb").textContent = clientData.carbTarget ? clientData.carbTarget + "g" : "—";
   }
 
   function renderLatestCheckin() {
