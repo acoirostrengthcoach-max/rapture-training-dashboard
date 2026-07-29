@@ -210,6 +210,7 @@
   .tag-low { background: rgba(212,162,76,0.15); color: var(--accent); }
   .tag-moderate { background: rgba(182,64,44,0.18); color: #d9724f; }
   .tag-high { background: rgba(182,64,44,0.28); color: var(--flame); }
+  .tag-nutrition { background: rgba(122,162,255,0.18); color: #7aa2ff; }
 
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
@@ -465,7 +466,7 @@
       <div class="profile-sub" id="profileSub">Tap your photo to update it</div>
     </div>
 
-    <div class="animal-widget">
+    <div class="animal-widget" id="animalWidget">
       <div class="animal-display">
         <span class="animal-icon" id="animalIcon">🐘</span>
         <span class="animal-count" id="animalCount">—</span>
@@ -485,7 +486,7 @@
     </div>
   </div>
 
-  <div class="scorecard">
+  <div class="scorecard" id="scorecard">
     <div class="stat-chip"><div class="stat-value" id="statTotalVolume">—</div><div class="stat-label">Lifetime Volume</div></div>
     <div class="stat-chip"><div class="stat-value" id="statTotalSets">—</div><div class="stat-label">Lifetime Sets</div></div>
     <div class="stat-chip"><div class="stat-value" id="statBlocks">—</div><div class="stat-label">Blocks</div></div>
@@ -1070,12 +1071,30 @@
         ? `<img src="${c.photo}">`
         : getInitialsFor(c.client);
 
-      const { latestRow } = getCurrentBlockId(c.weeklySummary || []);
-      const fatigueLabel = latestRow && latestRow["Fatigue Label"];
-      const lastDate = latestRow && parseDate(latestRow["Date"]);
+      const isNutritionOnly = c.clientType === "Nutrition Only";
+      let lastDate = null;
+      let fatigueTagHtml = "";
+
+      if (isNutritionOnly) {
+        // Training-block fatigue tracking doesn't apply — use their most
+        // recent check-in date instead.
+        const checkinRows = (c.dailyCheckins || []).filter(r => parseDate(r["Date"]));
+        if (checkinRows.length) {
+          lastDate = checkinRows.reduce((latest, r) => {
+            const d = toDate(r);
+            return (!latest || d > latest) ? d : latest;
+          }, null);
+        }
+      } else {
+        const { latestRow } = getCurrentBlockId(c.weeklySummary || []);
+        const fatigueLabel = latestRow && latestRow["Fatigue Label"];
+        lastDate = latestRow && parseDate(latestRow["Date"]);
+        if (fatigueLabel) {
+          fatigueTagHtml = `<span class="tag ${fatigueTagClass(fatigueLabel)}">${fatigueLabel}</span>`;
+        }
+      }
 
       let lastLoggedText = "No data logged yet";
-      let fatigueTagHtml = "";
       if (lastDate) {
         const daysAgo = Math.round((Date.now() - lastDate.getTime()) / 86400000);
         lastLoggedText = daysAgo <= 0 ? "Logged today" :
@@ -1083,15 +1102,14 @@
           daysAgo < 14 ? `Logged ${daysAgo} days ago` :
           `Logged ${Math.round(daysAgo / 7)} weeks ago`;
       }
-      if (fatigueLabel) {
-        fatigueTagHtml = `<span class="tag ${fatigueTagClass(fatigueLabel)}">${fatigueLabel}</span>`;
-      }
+
+      const typeTagHtml = isNutritionOnly ? `<span class="tag tag-nutrition">Nutrition</span>` : "";
 
       tile.innerHTML = `
         <div class="coach-avatar">${avatarInner}</div>
         <div class="name">${c.client}</div>
         <div class="coach-tile-meta">${lastLoggedText}</div>
-        ${fatigueTagHtml}
+        ${fatigueTagHtml}${typeTagHtml}
       `;
       tile.addEventListener("click", () => loadClientAsAdmin(c.client));
       grid.appendChild(tile);
@@ -1316,10 +1334,38 @@
   }
 
   // ---------- Render ----------
+  // ---------- Client Type (Training vs Nutrition Only) ----------
+  // Nutrition Only clients get just the Check-Ins section — no training
+  // tabs, no training-based scorecard/animal widget, since none of that
+  // data will ever exist for them.
+  function configureUiForClientType() {
+    const isNutritionOnly = clientData.clientType === "Nutrition Only";
+    const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory"];
+
+    document.querySelectorAll(".tab").forEach(tab => {
+      if (trainingTabNames.includes(tab.dataset.tab)) {
+        tab.style.display = isNutritionOnly ? "none" : "flex";
+      }
+    });
+
+    document.getElementById("scorecard").style.display = isNutritionOnly ? "none" : "flex";
+    document.getElementById("animalWidget").style.display = isNutritionOnly ? "none" : "block";
+
+    if (isNutritionOnly) {
+      // Force Check-Ins to be the only active tab/panel
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector('.tab[data-tab="checkins"]').classList.add("active");
+      document.getElementById("panel-checkins").classList.add("active");
+    }
+  }
+
   function renderDashboard() {
     document.getElementById("clientNameLabel").textContent = clientData.client;
     avatarInitials.textContent = getInitials(clientData.client);
     setAvatarImage(clientData.photo || null);
+
+    configureUiForClientType();
 
     const editBadge = document.getElementById("editBadge");
     const profileSub = document.getElementById("profileSub");
