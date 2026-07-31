@@ -140,14 +140,14 @@
   #photoInput { display: none; }
 
   .scorecard {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px; margin-bottom: 16px;
   }
   .stat-chip {
     min-width: 0; background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 10px 8px; text-align: center;
+    border-radius: 12px; padding: 10px 6px; text-align: center;
   }
-  .stat-value { font-size: 15px; font-weight: 700; color: var(--accent); white-space: normal; word-break: break-word; }
-  .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+  .stat-value { font-size: 14px; font-weight: 700; color: var(--accent); white-space: normal; word-break: break-word; line-height: 1.15; }
+  .stat-label { font-size: 9.5px; color: var(--muted); margin-top: 2px; line-height: 1.25; }
 
   .speciality-row { margin-bottom: 20px; }
   .speciality-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
@@ -211,6 +211,41 @@
   .tag-moderate { background: rgba(182,64,44,0.18); color: #d9724f; }
   .tag-high { background: rgba(182,64,44,0.28); color: var(--flame); }
   .tag-nutrition { background: rgba(122,162,255,0.18); color: #7aa2ff; }
+
+  /* ---------- Blood markers ---------- */
+  .blood-meta { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
+  .blood-meta b { color: var(--accent); }
+  .blood-list { display: flex; flex-direction: column; gap: 6px; }
+  .blood-row {
+    background: var(--card2); border-radius: 10px; padding: 10px 12px;
+  }
+  .blood-row.has-note { cursor: pointer; }
+  .blood-row-main { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .blood-marker { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; }
+  .blood-note-hint { color: var(--accent); font-size: 11px; margin-left: 3px; }
+  .blood-range { display: block; font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .blood-value-wrap { text-align: right; white-space: nowrap; }
+  .blood-value { font-size: 15px; font-weight: 700; color: var(--text); }
+  .blood-unit { font-size: 10px; color: var(--muted); font-weight: 400; }
+  .blood-flag {
+    display: inline-block; font-size: 9.5px; font-weight: 600;
+    padding: 2px 7px; border-radius: 999px; margin-top: 3px;
+  }
+  .blood-in { background: rgba(122,180,120,0.18); color: #7ab478; }
+  .blood-low { background: rgba(122,162,255,0.18); color: #7aa2ff; }
+  .blood-high { background: rgba(182,64,44,0.22); color: #e8927a; }
+  .blood-unknown { background: rgba(165,150,127,0.15); color: var(--muted); }
+  .blood-note {
+    display: none; margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); line-height: 1.5;
+  }
+  .blood-row.expanded .blood-note { display: block; }
+  .blood-note-result { margin-top: 6px; color: var(--text); font-style: italic; }
+  .blood-disclaimer {
+    font-size: 11px; color: var(--muted); line-height: 1.5;
+    background: var(--card2); border-left: 2px solid var(--accent-dim);
+    padding: 10px 12px; border-radius: 6px; margin-top: 4px;
+  }
 
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
@@ -689,6 +724,10 @@
         <div class="checkin-tile" data-category="digestion">
           <div class="checkin-tile-icon">🌿</div>
           <div class="checkin-tile-name">Digestion</div>
+        </div>
+        <div class="checkin-tile" data-category="bloods">
+          <div class="checkin-tile-icon">🩸</div>
+          <div class="checkin-tile-name">Bloods</div>
         </div>
       </div>
     </div>
@@ -1705,6 +1744,152 @@
     container.innerHTML = html;
   }
 
+  // ---------- Blood Markers ----------
+  function calculateAge(dobValue) {
+    const dob = parseDate(dobValue);
+    if (!dob) return null;
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    return age;
+  }
+
+  // Picks the reference row matching this client's sex and age. Sex-specific
+  // rows win over "Any" rows when both would match.
+  function findReferenceRange(markerName, sex, age) {
+    const refs = (clientData.bloodReference || []).filter(r => r["Marker"] === markerName);
+    if (!refs.length) return null;
+
+    const normalisedSex = String(sex || "").trim().toLowerCase();
+    const matches = refs.filter(r => {
+      const rSex = String(r["Sex"] || "Any").trim().toLowerCase();
+      const sexOk = rSex === "any" || rSex === normalisedSex;
+      if (!sexOk) return false;
+      if (age === null) return true; // no DOB on file — fall back to any age band
+      const min = Number(r["Age Min"]);
+      const max = Number(r["Age Max"]);
+      if (isNaN(min) || isNaN(max)) return true;
+      return age >= min && age <= max;
+    });
+
+    if (!matches.length) return null;
+    // Prefer a sex-specific row over a generic "Any" one
+    const specific = matches.find(r => String(r["Sex"] || "").trim().toLowerCase() === normalisedSex);
+    return specific || matches[0];
+  }
+
+  function renderBloodsView(content) {
+    const results = clientData.bloodResults || [];
+
+    if (!results.length) {
+      content.innerHTML = `<div class="chart-empty">No blood test results on file yet.</div>`;
+      return;
+    }
+
+    const age = calculateAge(clientData.dob);
+    const sex = clientData.sex;
+
+    // Group results by test date, newest first
+    const byDate = {};
+    results.forEach(r => {
+      const d = parseDate(r["Test Date"]);
+      if (!d) return;
+      const key = formatDMY(d);
+      if (!byDate[key]) byDate[key] = { date: d, rows: [] };
+      byDate[key].rows.push(r);
+    });
+
+    const sortedDates = Object.keys(byDate).sort((a, b) => byDate[b].date - byDate[a].date);
+    if (!sortedDates.length) {
+      content.innerHTML = `<div class="chart-empty">No blood test results with a valid date.</div>`;
+      return;
+    }
+
+    let html = "";
+
+    // Date selector when there's more than one test on file
+    if (sortedDates.length > 1) {
+      html += `<select id="bloodDateSelect">` +
+        sortedDates.map(d => `<option value="${d}">${d}</option>`).join("") +
+        `</select>`;
+    }
+
+    html += `<div id="bloodPanelContent"></div>`;
+    content.innerHTML = html;
+
+    const renderPanel = (dateKey) => {
+      const panel = document.getElementById("bloodPanelContent");
+      const rows = byDate[dateKey].rows;
+
+      // Group by the category from the reference sheet
+      const byCategory = {};
+      rows.forEach(r => {
+        const ref = findReferenceRange(r["Marker"], sex, age);
+        const cat = (ref && ref["Category"]) ? ref["Category"] : "Other";
+        if (!byCategory[cat]) byCategory[cat] = [];
+        byCategory[cat].push({ result: r, ref });
+      });
+
+      let out = `<p class="blood-meta">Test date: <b>${dateKey}</b>${age !== null ? ` · Ranges shown for age ${age}` : ""}${sex ? ` · ${sex}` : ""}</p>`;
+
+      Object.keys(byCategory).sort().forEach(cat => {
+        out += `<div class="chart-card"><h3>${cat}</h3><div class="blood-list">`;
+        byCategory[cat].forEach(({ result, ref }) => {
+          const value = Number(result["Value"]);
+          const unit = ref ? (ref["Unit"] || "") : "";
+          const low = ref ? Number(ref["Range Low"]) : null;
+          const high = ref ? Number(ref["Range High"]) : null;
+
+          let flagClass = "blood-unknown";
+          let flagText = "No range on file";
+
+          if (ref && !isNaN(low) && !isNaN(high) && !isNaN(value)) {
+            if (value < low) { flagClass = "blood-low"; flagText = "Below range"; }
+            else if (value > high) { flagClass = "blood-high"; flagText = "Above range"; }
+            else { flagClass = "blood-in"; flagText = "In range"; }
+          }
+
+          const rangeText = (ref && !isNaN(low) && !isNaN(high)) ? `${low} – ${high}${unit ? " " + unit : ""}` : "—";
+          const coachNote = ref && ref["Coach Notes"] ? String(ref["Coach Notes"]) : "";
+          const resultNote = result["Notes"] ? String(result["Notes"]) : "";
+          const hasNote = coachNote || resultNote;
+
+          out += `
+            <div class="blood-row ${hasNote ? "has-note" : ""}" ${hasNote ? 'data-expandable="1"' : ""}>
+              <div class="blood-row-main">
+                <div class="blood-marker">
+                  ${result["Marker"]}
+                  ${hasNote ? '<span class="blood-note-hint">ⓘ</span>' : ""}
+                  <span class="blood-range">Ref: ${rangeText}</span>
+                </div>
+                <div class="blood-value-wrap">
+                  <div class="blood-value">${result["Value"]}${unit ? ` <span class="blood-unit">${unit}</span>` : ""}</div>
+                  <span class="blood-flag ${flagClass}">${flagText}</span>
+                </div>
+              </div>
+              ${hasNote ? `<div class="blood-note">${coachNote ? `<div>${coachNote}</div>` : ""}${resultNote ? `<div class="blood-note-result">${resultNote}</div>` : ""}</div>` : ""}
+            </div>`;
+        });
+        out += `</div></div>`;
+      });
+
+      out += `<p class="blood-disclaimer">These results and reference ranges are for tracking and discussion only — they are not a diagnosis. Always review your results with your GP or treating practitioner.</p>`;
+
+      panel.innerHTML = out;
+
+      // Tapping a row with notes expands them
+      panel.querySelectorAll('.blood-row[data-expandable="1"]').forEach(rowEl => {
+        rowEl.addEventListener("click", () => rowEl.classList.toggle("expanded"));
+      });
+    };
+
+    renderPanel(sortedDates[0]);
+
+    const dateSelect = document.getElementById("bloodDateSelect");
+    if (dateSelect) dateSelect.onchange = () => renderPanel(dateSelect.value);
+  }
+
   function renderCustomLegend(canvasId, items) {
     const container = document.getElementById(canvasId + "Legend");
     if (!container) return; // not every chart has one (e.g. single-line charts elsewhere)
@@ -2110,7 +2295,8 @@
 
   const CHECKIN_CATEGORY_TITLES = {
     nutrition: "Nutrition", measurements: "Measurements", expenditure: "Expenditure",
-    sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion"
+    sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion",
+    bloods: "Blood Markers"
   };
 
   function showCheckinDetail(category) {
@@ -2120,6 +2306,15 @@
 
     const content = document.getElementById("checkinDetailContent");
     content.innerHTML = "";
+
+    // Bloods draws from Blood_Results/Blood_Reference, not the weekly
+    // check-in summary — route it before any of that logic runs.
+    if (category === "bloods") {
+      document.querySelector("#checkinDetail .block-sub").textContent = "Results by test date";
+      renderBloodsView(content);
+      return;
+    }
+    document.querySelector("#checkinDetail .block-sub").textContent = "Trend over every logged week";
 
     const weeklyRows = (clientData.weeklyCheckinSummary || [])
       .filter(r => parseDate(r["Week Start"]))
