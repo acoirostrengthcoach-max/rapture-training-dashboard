@@ -415,6 +415,56 @@
   }
   .cc-cal-value { font-size: 17px; font-weight: 700; color: var(--accent); }
 
+  /* Native select arrows don't inherit theme colours — replace with our own
+     so dropdowns match the rest of the app on every browser. */
+  select, .plan-year-select, .form-field select {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4a24c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 15px;
+    padding-right: 32px;
+  }
+  select option { background: var(--card); color: var(--text); }
+
+  .plan-year-select {
+    flex: 1; min-width: 0; padding: 7px 9px; background-color: var(--card2);
+    border: 1px solid var(--border); border-radius: 7px; color: var(--text);
+    font-size: 12.5px; margin-bottom: 0;
+  }
+
+  .deload-warn {
+    background: rgba(212,162,76,0.09); border: 1px solid var(--accent-dim);
+    border-radius: 10px; padding: 11px 13px; margin-bottom: 14px;
+  }
+  .dw-head {
+    font-size: 10.5px; color: var(--accent); text-transform: uppercase;
+    letter-spacing: 0.5px; font-weight: 700; margin-bottom: 7px;
+  }
+  .dw-item {
+    font-size: 11.5px; color: var(--muted); line-height: 1.45;
+    padding: 4px 0; cursor: pointer;
+  }
+  .dw-item:hover { color: var(--text); }
+  .dw-item b { color: var(--text); }
+
+  .ph-group { margin-bottom: 14px; }
+  .ph-time {
+    font-size: 10px; color: var(--accent); text-transform: uppercase;
+    letter-spacing: 0.4px; margin-bottom: 5px; font-weight: 700;
+  }
+  .ph-entry {
+    display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+    font-size: 11.5px; padding: 3px 0; color: var(--muted);
+  }
+  .ph-week {
+    font-size: 10px; background: var(--card2); padding: 2px 7px;
+    border-radius: 999px; flex-shrink: 0;
+  }
+  .ph-field { color: var(--text); font-weight: 600; min-width: 90px; }
+  .ph-change s { opacity: 0.55; }
+  .ph-change b { color: var(--accent); }
+
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 14px; padding: 18px; margin-bottom: 20px;
@@ -1090,11 +1140,22 @@
       </div>
 
       <div class="plan-toolbar">
+        <select id="planYearSelect" class="plan-year-select"></select>
         <input type="number" id="planJumpWeek" min="1" max="52" placeholder="Week #">
         <button class="plan-tool-btn" id="planJumpBtn">Jump</button>
         <button class="plan-tool-btn" id="planNowBtn">Now</button>
-        <button class="plan-tool-btn" id="planCopyBtn" style="display:none;">Copy Week</button>
+        <button class="plan-tool-btn" id="planCopyBtn" style="display:none;">Copy</button>
+        <button class="plan-tool-btn" id="planHistoryBtn">History</button>
       </div>
+
+      <div id="planHistoryPanel" style="display:none;">
+        <div class="chart-card">
+          <h3>Recent plan changes</h3>
+          <div id="planHistoryList"></div>
+        </div>
+      </div>
+
+      <div id="deloadWarnings"></div>
 
       <button class="full" id="planEditBtn" style="margin-bottom:16px; display:none;">Edit a Range of Weeks</button>
 
@@ -2162,6 +2223,8 @@
     ["planNutritionPhase", "Nutrition Phase"]
   ];
 
+  let selectedPlanYear = 1;
+
   function renderPlannerTab() {
     const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
     const noStart = document.getElementById("plannerNoStart");
@@ -2175,32 +2238,68 @@
     noStart.style.display = "none";
     body.style.display = "block";
 
-    // Coach-only editing, same read-only principle as photo upload
     const editBtn = document.getElementById("planEditBtn");
     editBtn.style.display = isAdminView ? "block" : "none";
 
-    document.getElementById("plannerSub").textContent =
-      `52 weeks from ${formatDMY(planStart)}`;
+    // Default to whichever year the client is currently in
+    const pos = getPlanPosition(planStart, new Date());
+    selectedPlanYear = pos ? pos.year : 1;
 
+    populateYearSelector(planStart);
     populatePlanDropdowns();
     wirePlannerControls(planStart);
-    renderPlannerWeeks(planStart);
-    renderYearStrip(planStart);
+    renderPlannerForYear(planStart);
+  }
+
+  function populateYearSelector(planStart) {
+    const select = document.getElementById("planYearSelect");
+    const pos = getPlanPosition(planStart, new Date());
+    const currentYear = pos ? pos.year : 1;
+
+    // Offer every year they've reached, plus one ahead for forward planning
+    const maxYear = Math.max(currentYear + 1, 2);
+    let html = "";
+    for (let y = 1; y <= maxYear; y++) {
+      const yearStart = new Date(planStart);
+      yearStart.setDate(planStart.getDate() + (y - 1) * 52 * 7);
+      html += `<option value="${y}" ${y === selectedPlanYear ? "selected" : ""}>Year ${y} · from ${formatDMY(yearStart)}</option>`;
+    }
+    select.innerHTML = html;
+    select.onchange = () => {
+      selectedPlanYear = Number(select.value);
+      renderPlannerForYear(planStart);
+    };
+  }
+
+  function renderPlannerForYear(planStart) {
+    const yearStart = new Date(planStart);
+    yearStart.setDate(planStart.getDate() + (selectedPlanYear - 1) * 52 * 7);
+
+    document.getElementById("plannerSub").textContent =
+      `Year ${selectedPlanYear} · 52 weeks from ${formatDMY(yearStart)}`;
+
+    renderPlannerWeeks(planStart, yearStart);
+    renderYearStrip(planStart, yearStart);
     renderCompCountdown(planStart);
+    renderDeloadWarnings(yearStart);
   }
 
   // A compact colour bar of all 52 weeks — lets you read the shape of a
   // whole year without scrolling, and tap any week to jump straight to it.
-  function renderYearStrip(planStart) {
+  function renderYearStrip(planStart, yearStart) {
     const strip = document.getElementById("yearStrip");
     const planByWeek = {};
-    (clientData.macrocyclePlan || []).forEach(r => { planByWeek[Number(r["Week Number"])] = r; });
+    (clientData.macrocyclePlan || []).forEach(r => {
+      if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
+        planByWeek[Number(r["Week Number"])] = r;
+      }
+    });
 
     const colours = {};
     (clientData.planOptions || []).forEach(o => { colours[o["Option"]] = o["Colour"]; });
 
-    const today = new Date();
-    const currentWeekNum = Math.floor((today - planStart) / (7 * 86400000)) + 1;
+    const pos = getPlanPosition(planStart, new Date());
+    const currentWeekNum = (pos && pos.year === selectedPlanYear) ? pos.week : null;
 
     let html = "";
     for (let w = 1; w <= 52; w++) {
@@ -2243,10 +2342,12 @@
     const upcoming = (clientData.macrocyclePlan || [])
       .filter(r => r["Competition"])
       .map(r => {
+        const year = Number(r["Plan Year"] || 1);
         const w = Number(r["Week Number"]);
+        const absWeek = ((year - 1) * 52) + w;
         const weekStart = new Date(planStart);
-        weekStart.setDate(planStart.getDate() + (w - 1) * 7);
-        return { row: r, weekNum: w, date: weekStart };
+        weekStart.setDate(planStart.getDate() + (absWeek - 1) * 7);
+        return { row: r, year, weekNum: w, date: weekStart };
       })
       .filter(c => c.date >= today)
       .sort((a, b) => a.date - b.date);
@@ -2261,10 +2362,17 @@
       <div class="cc-label">Next competition</div>
       <div class="cc-name">${next.row["Competition"]}</div>
       ${next.row["Location"] ? `<div class="cc-loc">${next.row["Location"]}</div>` : ""}
-      <div class="cc-weeks">${weeksAway <= 0 ? "This week" : weeksAway} <span>${weeksAway <= 0 ? "" : `week${weeksAway === 1 ? "" : "s"} away · Week ${next.weekNum} · ${formatDMY(next.date)}`}</span></div>
+      <div class="cc-weeks">${weeksAway <= 0 ? "This week" : weeksAway} <span>${weeksAway <= 0 ? "" : `week${weeksAway === 1 ? "" : "s"} away · Yr ${next.year} Wk ${next.weekNum} · ${formatDMY(next.date)}`}</span></div>
     `;
     el.style.cursor = "pointer";
-    el.onclick = () => scrollToPlanWeek(next.weekNum);
+    el.onclick = () => {
+      if (next.year !== selectedPlanYear) {
+        selectedPlanYear = next.year;
+        document.getElementById("planYearSelect").value = String(next.year);
+        renderPlannerForYear(planStart);
+      }
+      setTimeout(() => scrollToPlanWeek(next.weekNum), 100);
+    };
   }
 
   function scrollToPlanWeek(weekNum) {
@@ -2347,11 +2455,14 @@
     };
   }
 
-  function renderPlannerWeeks(planStart) {
+  function renderPlannerWeeks(planStart, yearStart) {
     const container = document.getElementById("plannerWeeks");
-    const plan = clientData.macrocyclePlan || [];
     const planByWeek = {};
-    plan.forEach(r => { planByWeek[Number(r["Week Number"])] = r; });
+    (clientData.macrocyclePlan || []).forEach(r => {
+      if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
+        planByWeek[Number(r["Week Number"])] = r;
+      }
+    });
 
     const optionColours = {};
     (clientData.planOptions || []).forEach(o => {
@@ -2359,13 +2470,13 @@
     });
 
     const today = new Date();
-    const msPerWeek = 7 * 86400000;
-    const currentWeekNum = Math.floor((today - planStart) / msPerWeek) + 1;
+    const pos = getPlanPosition(planStart, today);
+    const currentWeekNum = (pos && pos.year === selectedPlanYear) ? pos.week : null;
 
     let html = "";
     for (let w = 1; w <= 52; w++) {
-      const weekStart = new Date(planStart);
-      weekStart.setDate(planStart.getDate() + (w - 1) * 7);
+      const weekStart = new Date(yearStart);
+      weekStart.setDate(yearStart.getDate() + (w - 1) * 7);
       const row = planByWeek[w] || {};
       const isCurrent = w === currentWeekNum;
 
@@ -2498,6 +2609,49 @@
       document.getElementById("planCopyPanel").style.display = "none";
     };
     document.getElementById("planCopyRunBtn").onclick = () => copyPlanWeek(planStart);
+
+    // ---- Plan history ----
+    document.getElementById("planHistoryBtn").onclick = () => {
+      const panel = document.getElementById("planHistoryPanel");
+      const showing = panel.style.display !== "none";
+      panel.style.display = showing ? "none" : "block";
+      document.getElementById("planEditor").style.display = "none";
+      document.getElementById("planCopyPanel").style.display = "none";
+      if (!showing) renderPlanHistory();
+    };
+  }
+
+  // Shows the most recent plan changes, newest first, so you can see how a
+  // plan evolved rather than just its current state.
+  function renderPlanHistory() {
+    const list = document.getElementById("planHistoryList");
+    const history = (clientData.planHistory || []).slice().reverse().slice(0, 60);
+
+    if (!history.length) {
+      list.innerHTML = `<div class="chart-empty">No plan changes recorded yet.</div>`;
+      return;
+    }
+
+    // Group consecutive entries sharing a timestamp — one edit action
+    // usually produces many field changes at once.
+    const groups = [];
+    history.forEach(h => {
+      const ts = h["Timestamp"];
+      const last = groups[groups.length - 1];
+      if (last && last.timestamp === ts) last.entries.push(h);
+      else groups.push({ timestamp: ts, entries: [h] });
+    });
+
+    list.innerHTML = groups.map(g => `
+      <div class="ph-group">
+        <div class="ph-time">${g.timestamp}</div>
+        ${g.entries.map(e => `
+          <div class="ph-entry">
+            <span class="ph-week">Yr ${e["Plan Year"] || 1} Wk ${e["Week Number"]}</span>
+            <span class="ph-field">${e["Field"]}</span>
+            <span class="ph-change">${e["Old Value"] ? `<s>${e["Old Value"]}</s> → ` : ""}<b>${e["New Value"] || "—"}</b></span>
+          </div>`).join("")}
+      </div>`).join("");
   }
 
   // Copies every phase/macro/supplement setting from one week onto a range.
@@ -2519,7 +2673,7 @@
       return;
     }
 
-    const source = (clientData.macrocyclePlan || []).find(r => Number(r["Week Number"]) === from);
+    const source = planRowFor(selectedPlanYear, from);
     if (!source) {
       showMsg(`Week ${from} has nothing set to copy.`, true);
       return;
@@ -2555,6 +2709,7 @@
           passcode: currentPasscode,
           client: clientData.client,
           planStartDate: clientData.planStartDate,
+          planYear: selectedPlanYear,
           startWeek: toStart, endWeek: toEnd, values
         })
       });
@@ -2581,9 +2736,7 @@
     const refreshed = await (await fetch(url)).json();
     if (!refreshed.error) {
       clientData = refreshed;
-      renderPlannerWeeks(planStart);
-      renderYearStrip(planStart);
-      renderCompCountdown(planStart);
+      renderPlannerForYear(planStart);
     }
   }
 
@@ -2649,6 +2802,7 @@
           passcode: currentPasscode,
           client: clientData.client,
           planStartDate: clientData.planStartDate,
+          planYear: selectedPlanYear,
           startWeek, endWeek, values
         })
       });
@@ -2681,10 +2835,10 @@
     if (!planStart) { banner.style.display = "none"; return; }
 
     const today = new Date();
-    const weekNum = Math.floor((today - planStart) / (7 * 86400000)) + 1;
-    if (weekNum < 1 || weekNum > 52) { banner.style.display = "none"; return; }
+    const pos = getPlanPosition(planStart, today);
+    if (!pos) { banner.style.display = "none"; return; }
 
-    const row = (clientData.macrocyclePlan || []).find(r => Number(r["Week Number"]) === weekNum);
+    const row = planRowFor(pos.year, pos.week);
     if (!row || !row["Block Type"]) { banner.style.display = "none"; return; }
 
     const colours = {};
@@ -2696,24 +2850,102 @@
     if (row["Programming Type"]) metaBits.push(row["Programming Type"]);
     if (row["Nutrition Phase"]) metaBits.push(`<b>${row["Nutrition Phase"]}</b>`);
 
-    // Next competition, if there is one ahead
+    // Next competition ahead, counted in absolute weeks so it works across years
     let compHtml = "";
     const upcoming = (clientData.macrocyclePlan || [])
-      .filter(r => r["Competition"] && Number(r["Week Number"]) >= weekNum)
-      .sort((a, b) => Number(a["Week Number"]) - Number(b["Week Number"]))[0];
+      .filter(r => r["Competition"])
+      .map(r => ({
+        row: r,
+        abs: ((Number(r["Plan Year"] || 1) - 1) * 52) + Number(r["Week Number"])
+      }))
+      .filter(c => c.abs >= pos.absoluteWeek)
+      .sort((a, b) => a.abs - b.abs)[0];
     if (upcoming) {
-      const weeksAway = Number(upcoming["Week Number"]) - weekNum;
-      compHtml = `<div class="cpb-comp">🏆 ${upcoming["Competition"]} — ${weeksAway <= 0 ? "this week" : `${weeksAway} week${weeksAway === 1 ? "" : "s"} away`}</div>`;
+      const weeksAway = upcoming.abs - pos.absoluteWeek;
+      compHtml = `<div class="cpb-comp">🏆 ${upcoming.row["Competition"]} — ${weeksAway <= 0 ? "this week" : `${weeksAway} week${weeksAway === 1 ? "" : "s"} away`}</div>`;
     }
 
     banner.style.display = "block";
     banner.style.borderLeftColor = blockColour;
     banner.innerHTML = `
-      <div class="cpb-label">Plan · Week ${weekNum} of 52</div>
+      <div class="cpb-label">Plan · Year ${pos.year}, Week ${pos.week} of 52</div>
       <div class="cpb-block">${row["Block Type"]}</div>
       ${metaBits.length ? `<div class="cpb-meta">${metaBits.join(" · ")}</div>` : ""}
       ${compHtml}
     `;
+  }
+
+  // Works out which plan year and week a date falls into. Once a client
+  // passes week 52 they roll into Year 2 week 1, and so on — their start
+  // date never needs changing, and each year is planned separately.
+  function getPlanPosition(planStart, targetDate) {
+    if (!planStart || !targetDate) return null;
+    const weeksElapsed = Math.floor((targetDate - planStart) / (7 * 86400000));
+    if (weeksElapsed < 0) return null;
+    return {
+      year: Math.floor(weeksElapsed / 52) + 1,
+      week: (weeksElapsed % 52) + 1,
+      absoluteWeek: weeksElapsed + 1
+    };
+  }
+
+  function planRowFor(year, week) {
+    return (clientData.macrocyclePlan || []).find(r =>
+      Number(r["Week Number"]) === week && Number(r["Plan Year"] || 1) === year
+    );
+  }
+
+  // Flags stretches of hard training with no recovery week scheduled.
+  // Deliberately advisory — there are legitimate reasons to run long,
+  // so this points at spans worth a second look rather than errors.
+  const RECOVERY_BLOCKS = ["Deload", "Active Recovery", "Restorative", "Rehab", "Transition"];
+  const DELOAD_GAP_THRESHOLD = 6;
+
+  function renderDeloadWarnings(yearStart) {
+    const container = document.getElementById("deloadWarnings");
+    const planByWeek = {};
+    (clientData.macrocyclePlan || []).forEach(r => {
+      if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
+        planByWeek[Number(r["Week Number"])] = r;
+      }
+    });
+
+    const gaps = [];
+    let runStart = null;
+    let runLength = 0;
+
+    for (let w = 1; w <= 52; w++) {
+      const blockType = (planByWeek[w] || {})["Block Type"];
+      if (!blockType) {
+        // Unplanned weeks break the run without counting as recovery
+        if (runLength >= DELOAD_GAP_THRESHOLD) gaps.push({ start: runStart, end: w - 1, length: runLength });
+        runStart = null; runLength = 0;
+        continue;
+      }
+      if (RECOVERY_BLOCKS.includes(blockType)) {
+        if (runLength >= DELOAD_GAP_THRESHOLD) gaps.push({ start: runStart, end: w - 1, length: runLength });
+        runStart = null; runLength = 0;
+      } else {
+        if (runStart === null) runStart = w;
+        runLength++;
+      }
+    }
+    if (runLength >= DELOAD_GAP_THRESHOLD) gaps.push({ start: runStart, end: 52, length: runLength });
+
+    if (!gaps.length) { container.innerHTML = ""; return; }
+
+    container.innerHTML = `
+      <div class="deload-warn">
+        <div class="dw-head">⚠ Recovery spacing</div>
+        ${gaps.map(g => `
+          <div class="dw-item" data-week="${g.start}">
+            <b>Weeks ${g.start}–${g.end}</b> · ${g.length} consecutive weeks with no deload or recovery block scheduled
+          </div>`).join("")}
+      </div>`;
+
+    container.querySelectorAll(".dw-item").forEach(el => {
+      el.addEventListener("click", () => scrollToPlanWeek(Number(el.dataset.week)));
+    });
   }
 
   function renderCustomLegend(canvasId, items) {
@@ -3422,11 +3654,10 @@
     const target = dateValue ? parseDate(dateValue) : new Date();
     if (!planStart || !target) return fallback;
 
-    const weekNum = Math.floor((target - planStart) / (7 * 86400000)) + 1;
-    if (weekNum < 1 || weekNum > 52) return fallback;
+    const pos = getPlanPosition(planStart, target);
+    if (!pos) return fallback;
 
-    const planRow = (clientData.macrocyclePlan || [])
-      .find(r => Number(r["Week Number"]) === weekNum);
+    const planRow = planRowFor(pos.year, pos.week);
     if (!planRow) return fallback;
 
     const hasAny = planRow["Calorie Target"] || planRow["Protein Target"] ||
@@ -3439,7 +3670,8 @@
       fat: planRow["Fat Target"] || fallback.fat,
       carb: planRow["Carb Target"] || fallback.carb,
       phase: planRow["Nutrition Phase"] || "",
-      weekNum,
+      weekNum: pos.week,
+      planYear: pos.year,
       source: "plan"
     };
   }
@@ -3457,7 +3689,7 @@
     if (banner) {
       if (t.source === "plan") {
         banner.style.display = "block";
-        banner.innerHTML = `Week ${t.weekNum} of your plan${t.phase ? ` · <b>${t.phase}</b>` : ""}` +
+        banner.innerHTML = `Year ${t.planYear}, Week ${t.weekNum} of your plan${t.phase ? ` · <b>${t.phase}</b>` : ""}` +
           (t.calories ? ` · <b>${t.calories}</b> kcal target` : "");
       } else {
         banner.style.display = "none";
