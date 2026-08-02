@@ -299,6 +299,28 @@
     margin-top: 8px; font-size: 12px; color: var(--accent); font-weight: 600;
   }
   .pd-supps { margin-top: 6px; font-size: 11.5px; }
+
+  /* Actual logged training, shown against the plan */
+  .plan-actual-inline {
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: 1px; flex-shrink: 0; line-height: 1.15;
+  }
+  .pai-vol { font-size: 11.5px; font-weight: 700; color: var(--accent); }
+  .pai-rpe { font-size: 9.5px; color: var(--muted); }
+  .pd-actual {
+    margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border);
+  }
+  .pd-actual-head {
+    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.4px; margin-bottom: 7px;
+  }
+  .pd-actual-stats { display: flex; gap: 16px; }
+  .pd-stat { display: flex; flex-direction: column; }
+  .pd-stat b { font-size: 15px; color: var(--accent); font-weight: 700; line-height: 1.1; }
+  .pd-stat span { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+  .tag-low-text { color: var(--accent) !important; }
+  .tag-moderate-text { color: #d9724f !important; }
+  .tag-high-text { color: var(--flame) !important; }
   .plan-comp {
     margin-top: 8px; font-size: 12px; color: var(--flame); font-weight: 700;
   }
@@ -2445,6 +2467,39 @@
   // Compares a client's ACTUAL logged training for a week against what the
   // planned block type implies (via Expected Volume/Intensity in Plan_Options).
   // Deliberately coarse — it flags "worth a look", not a precise judgement.
+  // Finds the logged training week whose date falls inside a given plan week,
+  // so the planner can show what actually happened alongside what was planned.
+  // Volumes run into the tens of thousands — abbreviate so they fit the
+  // compact week row without pushing everything else off screen.
+  function formatCompactVolume(v) {
+    if (!v) return "—";
+    if (v >= 1000) return (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k";
+    return String(Math.round(v));
+  }
+
+  function getActualTrainingForWeek(weekStart) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const actual = (clientData.weeklySummary || []).find(r => {
+      const d = toDate(r);
+      return d && d >= weekStart && d <= weekEnd;
+    });
+    if (!actual) return null;
+
+    const volume = Number(actual["Total Volume"]) || 0;
+    const wrpe = Number(actual["wRPE"]) || 0;
+    if (!volume && !wrpe) return null;
+
+    return {
+      volume,
+      wrpe,
+      blockId: actual["BlockID"] || "",
+      weekLabel: actual["Week"] || "",
+      fatigueLabel: actual["Fatigue Label"] || ""
+    };
+  }
+
   function computePlanDrift(planRow, weekStart) {
     const blockType = planRow["Block Type"];
     if (!blockType) return null;
@@ -2519,9 +2574,8 @@
       const blockColour = optionColours[blockType];
       const nutColour = optionColours[nutritionPhase];
 
-      // Compact row: a colour stripe for block type, week number, date,
-      // block name, and a nutrition dot — everything else lives in the
-      // expandable detail so 52 weeks stay scannable.
+      const actual = (weekStart <= today) ? getActualTrainingForWeek(weekStart) : null;
+
       const hasDetail = row["Macrocycle Phase"] || row["Mesocycle Phase"] || row["Programming Type"] ||
         row["Competition"] || row["Notes"] || row["Supplementation"] ||
         row["Protein Target"] || row["Calorie Target"];
@@ -2529,7 +2583,7 @@
       const drift = (weekStart <= today) ? computePlanDrift(row, weekStart) : null;
 
       let detailHtml = "";
-      if (hasDetail || drift) {
+      if (hasDetail || drift || actual) {
         const detailBits = [];
         if (row["Macrocycle Phase"]) detailBits.push(`<span class="pd-label">Macro</span> ${row["Macrocycle Phase"]}`);
         if (row["Mesocycle Phase"]) detailBits.push(`<span class="pd-label">Meso</span> ${row["Mesocycle Phase"]}`);
@@ -2542,19 +2596,36 @@
         if (row["Fat Target"]) macros.push(`F ${row["Fat Target"]}g`);
         if (row["Carb Target"]) macros.push(`C ${row["Carb Target"]}g`);
 
+        // What actually got logged this week, pulled from Weekly_Summary
+        let actualHtml = "";
+        if (actual) {
+          actualHtml = `
+            <div class="pd-actual">
+              <div class="pd-actual-head">Logged this week${actual.blockId ? ` · ${actual.blockId}` : ""}${actual.weekLabel ? ` · ${actual.weekLabel}` : ""}</div>
+              <div class="pd-actual-stats">
+                <div class="pd-stat"><b>${Math.round(actual.volume).toLocaleString()}</b><span>volume</span></div>
+                <div class="pd-stat"><b>${actual.wrpe ? actual.wrpe.toFixed(1) : "—"}</b><span>wRPE</span></div>
+                ${actual.fatigueLabel ? `<div class="pd-stat"><b class="${fatigueTagClass(actual.fatigueLabel)}-text">${actual.fatigueLabel}</b><span>fatigue</span></div>` : ""}
+              </div>
+            </div>`;
+        }
+
         detailHtml = `
           <div class="plan-detail">
             ${detailBits.length ? `<div class="pd-grid">${detailBits.map(b => `<div>${b}</div>`).join("")}</div>` : ""}
             ${macros.length ? `<div class="pd-macros">${macros.join(" · ")}</div>` : ""}
             ${row["Supplementation"] ? `<div class="pd-supps"><span class="pd-label">Supps</span> ${row["Supplementation"]}</div>` : ""}
+            ${actualHtml}
             ${row["Competition"] ? `<div class="plan-comp">🏆 ${row["Competition"]}${row["Location"] ? ` <span>· ${row["Location"]}</span>` : ""}</div>` : ""}
             ${row["Notes"] ? `<div class="plan-note">${row["Notes"]}</div>` : ""}
             ${drift ? `<div class="plan-drift ${drift.ok ? "ok" : ""}">${drift.text}</div>` : ""}
           </div>`;
       }
 
+      const isExpandable = hasDetail || drift || actual;
+
       html += `
-        <div class="plan-week ${isCurrent ? "is-current" : ""} ${(hasDetail || drift) ? "expandable" : ""}">
+        <div class="plan-week ${isCurrent ? "is-current" : ""} ${isExpandable ? "expandable" : ""}">
           <div class="plan-row-main">
             <div class="plan-stripe" style="background:${blockColour || "var(--border)"};"></div>
             <div class="plan-wk">${w}</div>
@@ -2562,8 +2633,9 @@
               <div class="plan-block-name">${blockType || "<span class='unplanned'>Unplanned</span>"}</div>
               <div class="plan-week-date">${formatDMY(weekStart)}${isCurrent ? '<span class="current-badge">Now</span>' : ""}</div>
             </div>
+            ${actual ? `<div class="plan-actual-inline"><span class="pai-vol">${formatCompactVolume(actual.volume)}</span>${actual.wrpe ? `<span class="pai-rpe">${actual.wrpe.toFixed(1)}</span>` : ""}</div>` : ""}
             ${nutritionPhase ? `<div class="plan-nut-dot" style="background:${nutColour || "var(--muted)"};" title="${nutritionPhase}"></div>` : ""}
-            ${(hasDetail || drift) ? `<div class="plan-chev">›</div>` : ""}
+            ${isExpandable ? `<div class="plan-chev">›</div>` : ""}
             ${row["Competition"] ? `<div class="plan-comp-flag">🏆</div>` : ""}
           </div>
           ${detailHtml}
