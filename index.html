@@ -1005,6 +1005,10 @@
           <div class="checkin-tile-icon">🩸</div>
           <div class="checkin-tile-name">Bloods</div>
         </div>
+        <div class="checkin-tile" data-category="vitals">
+          <div class="checkin-tile-icon">❤️</div>
+          <div class="checkin-tile-name">Vitals</div>
+        </div>
       </div>
     </div>
 
@@ -1099,6 +1103,16 @@
         <div class="form-grid">
           <div class="form-field"><label>Sleep Hours</label><input type="number" step="0.1" id="ciSleepHours"></div>
           <div class="form-field"><label>Sleep Quality (1-5)</label><div class="slider-row"><input type="range" class="rating-slider" id="ciSleepQuality" min="1" max="5" step="1" value="3"><span class="slider-value" id="ciSleepQualityVal">3</span></div></div>
+        </div>
+      </div>
+
+      <div class="checkin-form-section">
+        <h3>Vitals</h3>
+        <p class="plan-editor-hint">Optional — leave blank if you're not measuring these.</p>
+        <div class="form-grid">
+          <div class="form-field"><label>Resting HR (bpm)</label><input type="number" id="ciRestingHR"></div>
+          <div class="form-field"><label>Systolic (mmHg)</label><input type="number" id="ciSystolic" placeholder="e.g. 120"></div>
+          <div class="form-field"><label>Diastolic (mmHg)</label><input type="number" id="ciDiastolic" placeholder="e.g. 80"></div>
         </div>
       </div>
 
@@ -1383,7 +1397,8 @@
       "checkinCaloriesChartInstance", "checkinMacrosChartInstance",
       "checkinMeasurementChartInstance", "checkinExpenditureChartInstance",
       "checkinNeatLissChartInstance", "checkinSleepChartInstance",
-      "checkinEnergyChartInstance", "checkinWellbeingChartInstance"
+      "checkinEnergyChartInstance", "checkinWellbeingChartInstance",
+      "checkinHRChartInstance", "checkinBPChartInstance"
     ];
     instanceNames.forEach(name => {
       const chart = window[name];
@@ -3438,6 +3453,12 @@
       group("Measurements",
         stat("Weight", latest["Weight"], "kg", 1)
       ) +
+      group("Vitals",
+        stat("Resting HR", latest["Resting HR"], " bpm", 0),
+        (latest["Systolic"] && latest["Diastolic"])
+          ? `<div class="checkin-stat">Blood Pressure<b>${roundTo(latest["Systolic"], 0)}/${roundTo(latest["Diastolic"], 0)}</b></div>`
+          : ""
+      ) +
       (latest["Menstrual Phase"]
         ? `<div class="checkin-summary-group">
              <div class="checkin-summary-group-label">Cycle</div>
@@ -3463,7 +3484,7 @@
   const CHECKIN_CATEGORY_TITLES = {
     nutrition: "Nutrition", measurements: "Measurements", expenditure: "Expenditure",
     sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion",
-    bloods: "Blood Markers"
+    bloods: "Blood Markers", vitals: "Vitals"
   };
 
   function showCheckinDetail(category) {
@@ -3591,6 +3612,33 @@
         { label: "Libido", data: weeklyRows.map(r => roundTo(Number(r["Libido"]) || 0, 1)), color: "#8a6a2f" },
         { label: "Focus", data: weeklyRows.map(r => r["Focus"] !== "" && r["Focus"] !== undefined ? roundTo(Number(r["Focus"]), 1) : null), color: "#5ee7b0" },
         { label: "Soreness", data: weeklyRows.map(r => r["Soreness"] !== "" && r["Soreness"] !== undefined ? roundTo(Number(r["Soreness"]), 1) : null), color: "#e8927a" }
+      ]);
+    } else if (category === "vitals") {
+      const hasVitals = weeklyRows.some(r =>
+        r["Resting HR"] || r["Systolic"] || r["Diastolic"]
+      );
+      if (!hasVitals) {
+        content.innerHTML = `<div class="chart-empty">No heart rate or blood pressure readings logged yet. Add them in your check-in when you measure them.</div>`;
+        return;
+      }
+
+      content.innerHTML =
+        `<div class="pr-row" id="hrMinMax"></div>` +
+        scrollChart("checkinHRChart", "Resting heart rate") +
+        `<div class="pr-row" id="bpMinMax"></div>` +
+        scrollChart("checkinBPChart", "Blood pressure") +
+        `<p class="blood-disclaimer">These readings are for tracking trends only, not diagnosis. Discuss anything that concerns you with your GP.</p>`;
+      applyScrollWidth("checkinHRChart", "checkinBPChart");
+
+      renderMinMaxTiles("hrMinMax", weeklyRows, "Resting HR", " bpm", 0, true, "Highest Resting HR", "Lowest Resting HR");
+      renderMinMaxTiles("bpMinMax", weeklyRows, "Systolic", "", 0, true, "Highest Systolic", "Lowest Systolic");
+
+      renderSingleLineChart("checkinHRChart", labels,
+        weeklyRows.map(r => r["Resting HR"] ? roundTo(Number(r["Resting HR"]), 0) : null), "bpm");
+
+      renderMultiLineChart("checkinBPChart", labels, [
+        { label: "Systolic", data: weeklyRows.map(r => r["Systolic"] ? roundTo(Number(r["Systolic"]), 0) : null), color: "#b6402c" },
+        { label: "Diastolic", data: weeklyRows.map(r => r["Diastolic"] ? roundTo(Number(r["Diastolic"]), 0) : null), color: "#7aa2ff" }
       ]);
     } else if (category === "digestion") {
       const dailyRows = (clientData.dailyCheckins || [])
@@ -3815,6 +3863,7 @@
     ["ciSleepHours", "Sleep Hours"], ["ciSleepQuality", "Sleep Quality"],
     ["ciDailyEnergy", "Daily Energy"], ["ciTrainingEnergy", "Training Energy"], ["ciStress", "Stress"],
     ["ciLibido", "Libido"], ["ciFocus", "Focus"], ["ciSoreness", "Soreness"],
+    ["ciRestingHR", "Resting HR"], ["ciSystolic", "Systolic"], ["ciDiastolic", "Diastolic"],
     ["ciStoolType", "Stool Type"], ["ciStoolColour", "Stool Colour"],
     ["ciWater", "Water"], ["ciHunger", "Hunger"],
     ["ciWeight", "Weight"], ["ciBodyFat", "Body Fat %"],
@@ -3927,7 +3976,10 @@
     ciHips: [0, 300, "Hips (cm)"],
     ciThighs: [0, 300, "Thighs (cm)"],
     ciArms: [0, 300, "Arms (cm)"],
-    ciStoolType: [1, 7, "Stool Type"]
+    ciStoolType: [1, 7, "Stool Type"],
+    ciRestingHR: [25, 220, "Resting HR"],
+    ciSystolic: [60, 260, "Systolic"],
+    ciDiastolic: [30, 180, "Diastolic"]
   };
 
   function validateCheckinForm() {
@@ -3996,6 +4048,9 @@
       libido: document.getElementById("ciLibido").value,
       focus: document.getElementById("ciFocus").value,
       soreness: document.getElementById("ciSoreness").value,
+      restingHR: document.getElementById("ciRestingHR").value,
+      systolic: document.getElementById("ciSystolic").value,
+      diastolic: document.getElementById("ciDiastolic").value,
       energyCrash: document.getElementById("ciEnergyCrash").value,
       stoolType: document.getElementById("ciStoolType").value,
       stoolColour: document.getElementById("ciStoolColour").value,
