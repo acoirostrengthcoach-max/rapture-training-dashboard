@@ -651,21 +651,27 @@
   .coach-tile-meta { font-size: 10px; color: var(--muted); margin: 4px 0 6px; }
   .coach-tile .tag { font-size: 10px; }
   /* ---------------------------------------------------------------
-     Select styling — kept last so nothing overrides it. Native select
-     arrows don't inherit theme colours, so we hide them and draw our
-     own gold chevron. Uses background-color (not the background
-     shorthand) everywhere above, or this image would get wiped.
+     Select styling — kept last so nothing overrides it.
+     appearance is split into its own rule so that if the background
+     image ever fails to parse, the native arrow still gets hidden
+     rather than doubling up. The SVG is base64-encoded because inline
+     SVG data URIs are easy to break with quoting/escaping issues.
      --------------------------------------------------------------- */
   select {
-    -webkit-appearance: none; -moz-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4a24c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  select::-ms-expand { display: none; }
+
+  select {
+    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZDRhMjRjIiBzdHJva2Utd2lkdGg9IjIuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSI2IDkgMTIgMTUgMTggOSIvPjwvc3ZnPg==);
     background-repeat: no-repeat;
     background-position: right 11px center;
-    background-size: 14px;
+    background-size: 14px 14px;
     padding-right: 34px;
   }
   select option { background-color: var(--card); color: var(--text); }
-  select::-ms-expand { display: none; }
 </style>
 </head>
 <body>
