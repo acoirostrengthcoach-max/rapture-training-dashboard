@@ -318,6 +318,72 @@
   }
   .plan-phase-banner b { color: var(--accent); }
 
+  /* ---------- Year overview strip ---------- */
+  .year-strip-wrap { margin-bottom: 14px; }
+  .year-strip-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 6px;
+  }
+  .year-strip-label span { text-transform: none; letter-spacing: 0; font-size: 10px; }
+  .year-strip {
+    display: flex; gap: 1px; height: 34px; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .ys-week { flex: 1; position: relative; cursor: pointer; min-width: 0; }
+  .ys-week:hover { opacity: 0.75; }
+  .ys-week.is-current { box-shadow: inset 0 0 0 2px var(--accent); }
+  .ys-week .ys-comp {
+    position: absolute; top: 1px; left: 50%; transform: translateX(-50%);
+    font-size: 7px; line-height: 1;
+  }
+  .ys-nut { position: absolute; bottom: 0; left: 0; right: 0; height: 6px; }
+
+  /* ---------- Planner toolbar ---------- */
+  .plan-toolbar { display: flex; gap: 6px; margin-bottom: 14px; align-items: center; }
+  .plan-toolbar input {
+    width: 78px; padding: 8px 10px; background: var(--card2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;
+  }
+  .plan-tool-btn {
+    background: var(--card2); color: var(--muted); border: 1px solid var(--border);
+    padding: 8px 12px; font-size: 12px; font-weight: 600; border-radius: 8px; white-space: nowrap;
+  }
+  .plan-tool-btn:hover { color: var(--text); border-color: var(--accent-dim); background: var(--card2); }
+
+  /* ---------- Competition countdown ---------- */
+  .comp-countdown {
+    background: linear-gradient(135deg, rgba(182,64,44,0.18), rgba(212,162,76,0.12));
+    border: 1px solid var(--flame); border-radius: 12px;
+    padding: 13px 15px; margin-bottom: 16px;
+  }
+  .cc-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  .cc-name { font-size: 16px; font-weight: 700; color: var(--text); }
+  .cc-loc { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .cc-weeks { font-size: 22px; font-weight: 700; color: var(--flame); margin-top: 6px; }
+  .cc-weeks span { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  .current-plan-banner {
+    background: var(--card); border: 1px solid var(--border); border-left-width: 4px;
+    border-radius: 10px; padding: 11px 14px; margin-bottom: 18px;
+  }
+  .cpb-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  .cpb-block { font-size: 15px; font-weight: 700; }
+  .cpb-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .cpb-meta b { color: var(--accent); }
+  .cpb-comp { font-size: 11.5px; color: var(--flame); margin-top: 5px; font-weight: 600; }
+
+  .plan-week.flash { animation: plan-flash 1.2s ease; }
+  @keyframes plan-flash {
+    0%, 100% { background: var(--card); }
+    30% { background: rgba(212,162,76,0.18); }
+  }
+
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 14px; padding: 18px; margin-bottom: 20px;
@@ -638,6 +704,8 @@
   <div class="tab-panel active" id="panel-currentBlock">
     <h2 class="block-title" id="blockTitle"></h2>
     <p class="block-sub">Current training block</p>
+
+    <div class="current-plan-banner" id="currentPlanBanner" style="display:none;"></div>
 
     <div class="fatigue-box">
       <div class="fatigue-tile">
@@ -982,7 +1050,36 @@
     </div>
 
     <div id="plannerBody" style="display:none;">
+      <div id="compCountdown" class="comp-countdown" style="display:none;"></div>
+
+      <div class="year-strip-wrap">
+        <div class="year-strip-label">Year at a glance <span>· tap to jump</span></div>
+        <div class="year-strip" id="yearStrip"></div>
+      </div>
+
+      <div class="plan-toolbar">
+        <input type="number" id="planJumpWeek" min="1" max="52" placeholder="Week #">
+        <button class="plan-tool-btn" id="planJumpBtn">Jump</button>
+        <button class="plan-tool-btn" id="planNowBtn">Now</button>
+        <button class="plan-tool-btn" id="planCopyBtn" style="display:none;">Copy Week</button>
+      </div>
+
       <button class="full" id="planEditBtn" style="margin-bottom:16px; display:none;">Edit a Range of Weeks</button>
+
+      <div id="planCopyPanel" style="display:none;">
+        <div class="chart-card">
+          <h3>Copy one week's settings to a range</h3>
+          <div class="form-grid">
+            <div class="form-field"><label>Copy from week</label><input type="number" id="copyFromWeek" min="1" max="52"></div>
+            <div class="form-field"><label>To week</label><input type="number" id="copyToStart" min="1" max="52"></div>
+            <div class="form-field"><label>Through week</label><input type="number" id="copyToEnd" min="1" max="52"></div>
+          </div>
+          <p class="plan-editor-hint">Copies every phase, macro and supplement setting from the source week. Competitions and notes are not copied.</p>
+          <button class="full" id="planCopyRunBtn">Copy Settings</button>
+          <div class="checkin-form-msg" id="planCopyMsg"></div>
+          <button class="logout full" id="planCopyCancelBtn" style="margin-top:8px;">Cancel</button>
+        </div>
+      </div>
 
       <div id="planEditor" style="display:none;">
         <div class="chart-card">
@@ -1589,6 +1686,7 @@
     renderScorecard();
     renderCheckinsTab();
     renderPlannerTab();
+    renderCurrentPlanBanner();
     renderSpeciality();
   }
 
@@ -2052,6 +2150,84 @@
     populatePlanDropdowns();
     wirePlannerControls(planStart);
     renderPlannerWeeks(planStart);
+    renderYearStrip(planStart);
+    renderCompCountdown(planStart);
+  }
+
+  // A compact colour bar of all 52 weeks — lets you read the shape of a
+  // whole year without scrolling, and tap any week to jump straight to it.
+  function renderYearStrip(planStart) {
+    const strip = document.getElementById("yearStrip");
+    const planByWeek = {};
+    (clientData.macrocyclePlan || []).forEach(r => { planByWeek[Number(r["Week Number"])] = r; });
+
+    const colours = {};
+    (clientData.planOptions || []).forEach(o => { colours[o["Option"]] = o["Colour"]; });
+
+    const today = new Date();
+    const currentWeekNum = Math.floor((today - planStart) / (7 * 86400000)) + 1;
+
+    let html = "";
+    for (let w = 1; w <= 52; w++) {
+      const row = planByWeek[w] || {};
+      const blockColour = colours[row["Block Type"]] || "#2a241c";
+      const nutColour = colours[row["Nutrition Phase"]];
+      html += `
+        <div class="ys-week ${w === currentWeekNum ? "is-current" : ""}"
+             style="background:${blockColour};" data-week="${w}"
+             title="Week ${w}${row["Block Type"] ? " · " + row["Block Type"] : ""}">
+          ${row["Competition"] ? `<span class="ys-comp">🏆</span>` : ""}
+          ${nutColour ? `<span class="ys-nut" style="background:${nutColour};"></span>` : ""}
+        </div>`;
+    }
+    strip.innerHTML = html;
+
+    strip.querySelectorAll(".ys-week").forEach(el => {
+      el.addEventListener("click", () => scrollToPlanWeek(Number(el.dataset.week)));
+    });
+  }
+
+  // Surfaces the next upcoming competition with a week countdown, since
+  // that's usually what everything else in the plan is built around.
+  function renderCompCountdown(planStart) {
+    const el = document.getElementById("compCountdown");
+    const today = new Date();
+
+    const upcoming = (clientData.macrocyclePlan || [])
+      .filter(r => r["Competition"])
+      .map(r => {
+        const w = Number(r["Week Number"]);
+        const weekStart = new Date(planStart);
+        weekStart.setDate(planStart.getDate() + (w - 1) * 7);
+        return { row: r, weekNum: w, date: weekStart };
+      })
+      .filter(c => c.date >= today)
+      .sort((a, b) => a.date - b.date);
+
+    if (!upcoming.length) { el.style.display = "none"; return; }
+
+    const next = upcoming[0];
+    const weeksAway = Math.ceil((next.date - today) / (7 * 86400000));
+
+    el.style.display = "block";
+    el.innerHTML = `
+      <div class="cc-label">Next competition</div>
+      <div class="cc-name">${next.row["Competition"]}</div>
+      ${next.row["Location"] ? `<div class="cc-loc">${next.row["Location"]}</div>` : ""}
+      <div class="cc-weeks">${weeksAway <= 0 ? "This week" : weeksAway} <span>${weeksAway <= 0 ? "" : `week${weeksAway === 1 ? "" : "s"} away · Week ${next.weekNum} · ${formatDMY(next.date)}`}</span></div>
+    `;
+    el.style.cursor = "pointer";
+    el.onclick = () => scrollToPlanWeek(next.weekNum);
+  }
+
+  function scrollToPlanWeek(weekNum) {
+    const container = document.getElementById("plannerWeeks");
+    const target = container.querySelectorAll(".plan-week")[weekNum - 1];
+    if (target) {
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+      target.classList.add("flash");
+      setTimeout(() => target.classList.remove("flash"), 1200);
+    }
   }
 
   function populatePlanDropdowns() {
@@ -2220,12 +2396,124 @@
 
     editBtn.onclick = () => {
       editor.style.display = editor.style.display === "none" ? "block" : "none";
+      document.getElementById("planCopyPanel").style.display = "none";
       document.getElementById("planSaveMsg").textContent = "";
     };
     document.getElementById("planCancelBtn").onclick = () => {
       editor.style.display = "none";
     };
     document.getElementById("planSaveBtn").onclick = () => savePlanRange(planStart);
+
+    // ---- Toolbar ----
+    document.getElementById("planJumpBtn").onclick = () => {
+      const w = Number(document.getElementById("planJumpWeek").value);
+      if (w >= 1 && w <= 52) scrollToPlanWeek(w);
+    };
+    document.getElementById("planNowBtn").onclick = () => {
+      const currentWeek = Math.floor((new Date() - planStart) / (7 * 86400000)) + 1;
+      scrollToPlanWeek(Math.min(Math.max(currentWeek, 1), 52));
+    };
+
+    // ---- Copy week (coach only) ----
+    const copyBtn = document.getElementById("planCopyBtn");
+    copyBtn.style.display = isAdminView ? "inline-block" : "none";
+    copyBtn.onclick = () => {
+      const panel = document.getElementById("planCopyPanel");
+      panel.style.display = panel.style.display === "none" ? "block" : "none";
+      editor.style.display = "none";
+      document.getElementById("planCopyMsg").textContent = "";
+    };
+    document.getElementById("planCopyCancelBtn").onclick = () => {
+      document.getElementById("planCopyPanel").style.display = "none";
+    };
+    document.getElementById("planCopyRunBtn").onclick = () => copyPlanWeek(planStart);
+  }
+
+  // Copies every phase/macro/supplement setting from one week onto a range.
+  // Competition and Notes are deliberately excluded — those are week-specific
+  // by nature and copying them would almost always be wrong.
+  async function copyPlanWeek(planStart) {
+    const from = Number(document.getElementById("copyFromWeek").value);
+    const toStart = Number(document.getElementById("copyToStart").value);
+    const toEnd = Number(document.getElementById("copyToEnd").value);
+    const msgEl = document.getElementById("planCopyMsg");
+
+    function showMsg(text, isError) {
+      msgEl.textContent = text;
+      msgEl.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    if (!from || !toStart || !toEnd || from < 1 || from > 52 || toStart < 1 || toEnd > 52 || toStart > toEnd) {
+      showMsg("Check your week numbers — all must be 1-52, and the target range valid.", true);
+      return;
+    }
+
+    const source = (clientData.macrocyclePlan || []).find(r => Number(r["Week Number"]) === from);
+    if (!source) {
+      showMsg(`Week ${from} has nothing set to copy.`, true);
+      return;
+    }
+
+    const copyFields = [
+      "Macrocycle Phase", "Mesocycle Phase", "Block Type", "Programming Type",
+      "Nutrition Phase", "Protein Target", "Fat Target", "Carb Target",
+      "Calorie Target", "Supplementation"
+    ];
+    const values = {};
+    copyFields.forEach(f => {
+      if (source[f] !== undefined && source[f] !== null && source[f] !== "") values[f] = source[f];
+    });
+
+    if (!Object.keys(values).length) {
+      showMsg(`Week ${from} has nothing set to copy.`, true);
+      return;
+    }
+
+    const btn = document.getElementById("planCopyRunBtn");
+    btn.disabled = true;
+    btn.textContent = "Copying...";
+    showLoading("Copying week settings...");
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "savePlanRange",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          planStartDate: clientData.planStartDate,
+          startWeek: toStart, endWeek: toEnd, values
+        })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        showMsg(data.error, true);
+      } else {
+        showMsg(`Copied week ${from} to weeks ${toStart}–${toEnd}.`, false);
+        await refreshPlannerData(planStart);
+      }
+    } catch (err) {
+      showMsg("Couldn't copy — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Copy Settings";
+      hideLoading();
+    }
+  }
+
+  async function refreshPlannerData(planStart) {
+    const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+    const refreshed = await (await fetch(url)).json();
+    if (!refreshed.error) {
+      clientData = refreshed;
+      renderPlannerWeeks(planStart);
+      renderYearStrip(planStart);
+      renderCompCountdown(planStart);
+    }
   }
 
   async function savePlanRange(planStart) {
@@ -2290,13 +2578,7 @@
         showMsg(data.error, true);
       } else {
         showMsg(`Updated ${data.weeksUpdated} week${data.weeksUpdated === 1 ? "" : "s"}.`, false);
-        // Pull fresh data so the week list reflects the change immediately
-        const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
-        const refreshed = await (await fetch(url)).json();
-        if (!refreshed.error) {
-          clientData = refreshed;
-          renderPlannerWeeks(planStart);
-        }
+        await refreshPlannerData(planStart);
       }
     } catch (err) {
       showMsg("Couldn't save — check your connection and try again.", true);
@@ -2306,6 +2588,52 @@
       saveBtn.textContent = "Apply to Week Range";
       hideLoading();
     }
+  }
+
+  // Surfaces what the plan says about *this* week on the Current Block tab,
+  // where clients actually look day to day — rather than making them go
+  // hunting through the 52-week planner.
+  function renderCurrentPlanBanner() {
+    const banner = document.getElementById("currentPlanBanner");
+    if (!banner) return;
+
+    const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
+    if (!planStart) { banner.style.display = "none"; return; }
+
+    const today = new Date();
+    const weekNum = Math.floor((today - planStart) / (7 * 86400000)) + 1;
+    if (weekNum < 1 || weekNum > 52) { banner.style.display = "none"; return; }
+
+    const row = (clientData.macrocyclePlan || []).find(r => Number(r["Week Number"]) === weekNum);
+    if (!row || !row["Block Type"]) { banner.style.display = "none"; return; }
+
+    const colours = {};
+    (clientData.planOptions || []).forEach(o => { colours[o["Option"]] = o["Colour"]; });
+    const blockColour = colours[row["Block Type"]] || "var(--accent)";
+
+    const metaBits = [];
+    if (row["Mesocycle Phase"]) metaBits.push(row["Mesocycle Phase"]);
+    if (row["Programming Type"]) metaBits.push(row["Programming Type"]);
+    if (row["Nutrition Phase"]) metaBits.push(`<b>${row["Nutrition Phase"]}</b>`);
+
+    // Next competition, if there is one ahead
+    let compHtml = "";
+    const upcoming = (clientData.macrocyclePlan || [])
+      .filter(r => r["Competition"] && Number(r["Week Number"]) >= weekNum)
+      .sort((a, b) => Number(a["Week Number"]) - Number(b["Week Number"]))[0];
+    if (upcoming) {
+      const weeksAway = Number(upcoming["Week Number"]) - weekNum;
+      compHtml = `<div class="cpb-comp">🏆 ${upcoming["Competition"]} — ${weeksAway <= 0 ? "this week" : `${weeksAway} week${weeksAway === 1 ? "" : "s"} away`}</div>`;
+    }
+
+    banner.style.display = "block";
+    banner.style.borderLeftColor = blockColour;
+    banner.innerHTML = `
+      <div class="cpb-label">Plan · Week ${weekNum} of 52</div>
+      <div class="cpb-block">${row["Block Type"]}</div>
+      ${metaBits.length ? `<div class="cpb-meta">${metaBits.join(" · ")}</div>` : ""}
+      ${compHtml}
+    `;
   }
 
   function renderCustomLegend(canvasId, items) {
