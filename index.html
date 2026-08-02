@@ -252,8 +252,11 @@
   .plan-week {
     background: var(--card); border: 1px solid var(--border); border-radius: 9px;
     margin-bottom: 4px; overflow: hidden;
+    transition: border-color 0.15s ease;
   }
+  .plan-week.expandable:hover { border-color: var(--accent-dim); }
   .plan-week.is-current { border-color: var(--accent); }
+  .plan-week.expanded { border-color: var(--accent-dim); }
   .plan-row-main {
     display: flex; align-items: center; gap: 9px; padding: 7px 10px 7px 0;
   }
@@ -319,36 +322,54 @@
   .plan-phase-banner b { color: var(--accent); }
 
   /* ---------- Year overview strip ---------- */
-  .year-strip-wrap { margin-bottom: 14px; }
+  .year-strip-wrap {
+    margin-bottom: 14px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 11px;
+  }
   .year-strip-label {
     font-size: 10px; color: var(--muted); text-transform: uppercase;
-    letter-spacing: 0.5px; margin-bottom: 6px;
+    letter-spacing: 0.5px; margin-bottom: 7px;
   }
-  .year-strip-label span { text-transform: none; letter-spacing: 0; font-size: 10px; }
+  .year-strip-label span { text-transform: none; letter-spacing: 0; font-size: 10px; opacity: 0.7; }
   .year-strip {
-    display: flex; gap: 1px; height: 34px; border-radius: 6px; overflow: hidden;
-    border: 1px solid var(--border);
+    display: flex; gap: 1px; height: 40px; border-radius: 5px; overflow: hidden;
   }
-  .ys-week { flex: 1; position: relative; cursor: pointer; min-width: 0; }
-  .ys-week:hover { opacity: 0.75; }
-  .ys-week.is-current { box-shadow: inset 0 0 0 2px var(--accent); }
+  .ys-week {
+    flex: 1; position: relative; cursor: pointer; min-width: 0;
+    transition: opacity 0.12s ease;
+  }
+  .ys-week:hover { opacity: 0.7; }
+  .ys-week.is-current { box-shadow: inset 0 0 0 2px var(--accent); z-index: 1; }
   .ys-week .ys-comp {
     position: absolute; top: 1px; left: 50%; transform: translateX(-50%);
     font-size: 7px; line-height: 1;
   }
   .ys-nut { position: absolute; bottom: 0; left: 0; right: 0; height: 6px; }
+  .year-strip-legend {
+    display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 9px;
+  }
+  .ysl-item { display: flex; align-items: center; gap: 4px; font-size: 9.5px; color: var(--muted); }
+  .ysl-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
   /* ---------- Planner toolbar ---------- */
-  .plan-toolbar { display: flex; gap: 6px; margin-bottom: 14px; align-items: center; }
-  .plan-toolbar input {
-    width: 78px; padding: 8px 10px; background: var(--card2);
-    border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px;
+  .plan-toolbar {
+    display: flex; gap: 6px; margin-bottom: 14px; align-items: center;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 7px 8px;
   }
+  .plan-toolbar input {
+    width: 74px; padding: 7px 9px; background: var(--card2);
+    border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: 12.5px;
+    transition: border-color 0.15s ease;
+  }
+  .plan-toolbar input:focus { outline: none; border-color: var(--accent); }
   .plan-tool-btn {
     background: var(--card2); color: var(--muted); border: 1px solid var(--border);
-    padding: 8px 12px; font-size: 12px; font-weight: 600; border-radius: 8px; white-space: nowrap;
+    padding: 7px 12px; font-size: 12px; font-weight: 600; border-radius: 7px; white-space: nowrap;
+    transition: color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
   }
   .plan-tool-btn:hover { color: var(--text); border-color: var(--accent-dim); background: var(--card2); }
+  .plan-tool-btn:active { transform: scale(0.96); }
 
   /* ---------- Competition countdown ---------- */
   .comp-countdown {
@@ -383,6 +404,16 @@
     0%, 100% { background: var(--card); }
     30% { background: rgba(212,162,76,0.18); }
   }
+
+  .calc-calories {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--card2); border: 1px solid var(--accent-dim);
+    border-radius: 8px; padding: 10px 13px; margin-bottom: 16px;
+  }
+  .cc-cal-label {
+    font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .cc-cal-value { font-size: 17px; font-weight: 700; color: var(--accent); }
 
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
@@ -1055,6 +1086,7 @@
       <div class="year-strip-wrap">
         <div class="year-strip-label">Year at a glance <span>· tap to jump</span></div>
         <div class="year-strip" id="yearStrip"></div>
+        <div class="year-strip-legend" id="yearStripLegend"></div>
       </div>
 
       <div class="plan-toolbar">
@@ -1096,11 +1128,14 @@
           <div class="form-field"><label>Programming Type</label><select id="planProgType"></select></div>
           <div class="form-field"><label>Nutrition Phase</label><select id="planNutritionPhase"></select></div>
 
-          <div class="form-field"><label>Calorie Target</label><input type="number" id="planCalorieTarget" placeholder="Leave blank for no change"></div>
           <div class="form-grid">
             <div class="form-field"><label>Protein (g)</label><input type="number" id="planProteinTarget"></div>
             <div class="form-field"><label>Fat (g)</label><input type="number" id="planFatTarget"></div>
             <div class="form-field"><label>Carbs (g)</label><input type="number" id="planCarbTarget"></div>
+          </div>
+          <div class="calc-calories" id="planCalorieDisplay">
+            <span class="cc-cal-label">Calculated target</span>
+            <span class="cc-cal-value" id="planCalorieValue">— kcal</span>
           </div>
 
           <div class="form-field">
@@ -2185,6 +2220,18 @@
     strip.querySelectorAll(".ys-week").forEach(el => {
       el.addEventListener("click", () => scrollToPlanWeek(Number(el.dataset.week)));
     });
+
+    // Legend shows only the block types actually used in this plan, so it
+    // stays short rather than listing all 13 possibilities every time.
+    const usedBlocks = [];
+    for (let w = 1; w <= 52; w++) {
+      const bt = (planByWeek[w] || {})["Block Type"];
+      if (bt && !usedBlocks.includes(bt)) usedBlocks.push(bt);
+    }
+    const legend = document.getElementById("yearStripLegend");
+    legend.innerHTML = usedBlocks.map(bt =>
+      `<div class="ysl-item"><span class="ysl-dot" style="background:${colours[bt] || "var(--border)"};"></span>${bt}</div>`
+    ).join("");
   }
 
   // Surfaces the next upcoming competition with a week countdown, since
@@ -2390,6 +2437,23 @@
     }
   }
 
+  function calcCaloriesFromMacros(protein, fat, carb) {
+    const p = Number(protein) || 0;
+    const f = Number(fat) || 0;
+    const c = Number(carb) || 0;
+    if (!p && !f && !c) return null;
+    return Math.round((p * 4) + (f * 9) + (c * 4));
+  }
+
+  function updatePlanCalorieDisplay() {
+    const kcal = calcCaloriesFromMacros(
+      document.getElementById("planProteinTarget").value,
+      document.getElementById("planFatTarget").value,
+      document.getElementById("planCarbTarget").value
+    );
+    document.getElementById("planCalorieValue").textContent = kcal ? `${kcal} kcal` : "— kcal";
+  }
+
   function wirePlannerControls(planStart) {
     const editBtn = document.getElementById("planEditBtn");
     const editor = document.getElementById("planEditor");
@@ -2403,6 +2467,13 @@
       editor.style.display = "none";
     };
     document.getElementById("planSaveBtn").onclick = () => savePlanRange(planStart);
+
+    // Calories are derived from the macros rather than typed separately —
+    // protein and carbs at 4 kcal/g, fat at 9 kcal/g.
+    ["planProteinTarget", "planFatTarget", "planCarbTarget"].forEach(id => {
+      document.getElementById(id).addEventListener("input", updatePlanCalorieDisplay);
+    });
+    updatePlanCalorieDisplay();
 
     // ---- Toolbar ----
     document.getElementById("planJumpBtn").onclick = () => {
@@ -2539,12 +2610,21 @@
       else if (val) values[field] = val;
     });
     ["planCompetition:Competition", "planLocation:Location", "planNotes:Notes",
-     "planCalorieTarget:Calorie Target", "planProteinTarget:Protein Target",
-     "planFatTarget:Fat Target", "planCarbTarget:Carb Target"].forEach(pair => {
+     "planProteinTarget:Protein Target", "planFatTarget:Fat Target",
+     "planCarbTarget:Carb Target"].forEach(pair => {
       const [id, field] = pair.split(":");
       const val = document.getElementById(id).value.trim();
       if (val) values[field] = val;
     });
+
+    // Calorie target is derived, not entered — recompute it whenever any
+    // macro was set so it always stays consistent with them.
+    const kcal = calcCaloriesFromMacros(
+      document.getElementById("planProteinTarget").value,
+      document.getElementById("planFatTarget").value,
+      document.getElementById("planCarbTarget").value
+    );
+    if (kcal) values["Calorie Target"] = kcal;
 
     const checkedSupps = Array.from(document.querySelectorAll(".plan-supp:checked")).map(c => c.value);
     if (checkedSupps.length) values["Supplementation"] = checkedSupps.join(", ");
