@@ -247,6 +247,37 @@
     padding: 10px 12px; border-radius: 6px; margin-top: 4px;
   }
 
+  /* ---------- Macrocycle planner ---------- */
+  .plan-editor-hint { font-size: 11px; color: var(--muted); margin: 0 0 14px; }
+  .plan-week {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 11px 13px; margin-bottom: 7px;
+  }
+  .plan-week.is-current { border-color: var(--accent); background: rgba(212,162,76,0.07); }
+  .plan-week-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .plan-week-num { font-size: 13px; font-weight: 700; }
+  .plan-week-num .current-badge {
+    font-size: 9px; background: var(--accent); color: var(--bg);
+    padding: 2px 7px; border-radius: 999px; margin-left: 6px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .plan-week-date { font-size: 11px; color: var(--muted); }
+  .plan-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+  .plan-tag {
+    font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+    background: rgba(165,150,127,0.15); color: var(--muted);
+  }
+  .plan-comp {
+    margin-top: 7px; font-size: 12px; color: var(--flame); font-weight: 700;
+  }
+  .plan-comp span { color: var(--muted); font-weight: 400; font-size: 11px; }
+  .plan-note { margin-top: 6px; font-size: 11px; color: var(--muted); font-style: italic; }
+  .plan-drift {
+    margin-top: 7px; font-size: 11px; padding: 6px 9px; border-radius: 7px;
+    background: rgba(182,64,44,0.14); color: #e8927a; line-height: 1.4;
+  }
+  .plan-drift.ok { background: rgba(122,180,120,0.14); color: #7ab478; }
+
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 14px; padding: 18px; margin-bottom: 20px;
@@ -557,6 +588,10 @@
     <button class="tab" data-tab="checkins">
       <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="1.2"/><path d="M9 3.5h6v2H9z"/><path d="M8.5 12.5l2 2 4-4.5"/></svg>
       Check-In
+    </button>
+    <button class="tab" data-tab="planner">
+      <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 11h16M4 16h16M4 21h16"/><circle cx="8" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="14" cy="11" r="1.6" fill="currentColor" stroke="none"/><circle cx="10" cy="16" r="1.6" fill="currentColor" stroke="none"/></svg>
+      Plan
     </button>
   </div>
 
@@ -894,6 +929,45 @@
 
       <button class="full" id="ciSubmitBtn">Save Check-In</button>
       <div class="checkin-form-msg" id="ciSubmitMsg"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="panel-planner">
+    <h2 class="block-title">Annual Plan</h2>
+    <p class="block-sub" id="plannerSub">52-week macrocycle</p>
+
+    <div id="plannerNoStart" class="chart-empty" style="display:none;">
+      No plan start date set for this client yet. Add a <b>Plan Start Date</b> (a Monday) to their row in the Clients tab to begin planning.
+    </div>
+
+    <div id="plannerBody" style="display:none;">
+      <button class="full" id="planEditBtn" style="margin-bottom:16px; display:none;">Edit a Range of Weeks</button>
+
+      <div id="planEditor" style="display:none;">
+        <div class="chart-card">
+          <h3>Set phases across a week range</h3>
+          <div class="form-grid">
+            <div class="form-field"><label>From week</label><input type="number" id="planStartWeek" min="1" max="52" value="1"></div>
+            <div class="form-field"><label>To week</label><input type="number" id="planEndWeek" min="1" max="52" value="4"></div>
+          </div>
+          <p class="plan-editor-hint">Leave any field as "— no change —" to keep whatever those weeks already have.</p>
+
+          <div class="form-field"><label>Macrocycle Phase</label><select id="planMacroPhase"></select></div>
+          <div class="form-field"><label>Mesocycle Phase</label><select id="planMesoPhase"></select></div>
+          <div class="form-field"><label>Block Type</label><select id="planBlockType"></select></div>
+          <div class="form-field"><label>Programming Type</label><select id="planProgType"></select></div>
+          <div class="form-field"><label>Nutrition Phase</label><select id="planNutritionPhase"></select></div>
+          <div class="form-field"><label>Competition (optional)</label><input type="text" id="planCompetition" placeholder="Leave blank for no change"></div>
+          <div class="form-field"><label>Location (optional)</label><input type="text" id="planLocation" placeholder="Leave blank for no change"></div>
+          <div class="form-field"><label>Notes (optional)</label><input type="text" id="planNotes" placeholder="Leave blank for no change"></div>
+
+          <button class="full" id="planSaveBtn">Apply to Week Range</button>
+          <div class="checkin-form-msg" id="planSaveMsg"></div>
+          <button class="logout full" id="planCancelBtn" style="margin-top:8px;">Cancel</button>
+        </div>
+      </div>
+
+      <div id="plannerWeeks"></div>
     </div>
   </div>
 </div>
@@ -1379,7 +1453,7 @@
   // data will ever exist for them.
   function configureUiForClientType() {
     const isNutritionOnly = clientData.clientType === "Nutrition Only";
-    const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory"];
+    const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory", "planner"];
 
     document.querySelectorAll(".tab").forEach(tab => {
       if (trainingTabNames.includes(tab.dataset.tab)) {
@@ -1459,6 +1533,7 @@
     renderExerciseHistoryTab();
     renderScorecard();
     renderCheckinsTab();
+    renderPlannerTab();
     renderSpeciality();
   }
 
@@ -1888,6 +1963,249 @@
 
     const dateSelect = document.getElementById("bloodDateSelect");
     if (dateSelect) dateSelect.onchange = () => renderPanel(dateSelect.value);
+  }
+
+  // ---------- Macrocycle Planner ----------
+  const PLAN_FIELD_MAP = [
+    ["planMacroPhase", "Macrocycle Phase"],
+    ["planMesoPhase", "Mesocycle Phase"],
+    ["planBlockType", "Block Type"],
+    ["planProgType", "Programming Type"],
+    ["planNutritionPhase", "Nutrition Phase"]
+  ];
+
+  function renderPlannerTab() {
+    const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
+    const noStart = document.getElementById("plannerNoStart");
+    const body = document.getElementById("plannerBody");
+
+    if (!planStart) {
+      noStart.style.display = "block";
+      body.style.display = "none";
+      return;
+    }
+    noStart.style.display = "none";
+    body.style.display = "block";
+
+    // Coach-only editing, same read-only principle as photo upload
+    const editBtn = document.getElementById("planEditBtn");
+    editBtn.style.display = isAdminView ? "block" : "none";
+
+    document.getElementById("plannerSub").textContent =
+      `52 weeks from ${formatDMY(planStart)}`;
+
+    populatePlanDropdowns();
+    wirePlannerControls(planStart);
+    renderPlannerWeeks(planStart);
+  }
+
+  function populatePlanDropdowns() {
+    const options = clientData.planOptions || [];
+    PLAN_FIELD_MAP.forEach(([selectId, category]) => {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      const relevant = options.filter(o => o["Category"] === category);
+      select.innerHTML = `<option value="">— no change —</option>` +
+        `<option value="__CLEAR__">— clear this field —</option>` +
+        relevant.map(o => `<option value="${o["Option"]}">${o["Option"]}</option>`).join("");
+    });
+  }
+
+  // Compares a client's ACTUAL logged training for a week against what the
+  // planned block type implies (via Expected Volume/Intensity in Plan_Options).
+  // Deliberately coarse — it flags "worth a look", not a precise judgement.
+  function computePlanDrift(planRow, weekStart) {
+    const blockType = planRow["Block Type"];
+    if (!blockType) return null;
+
+    const opt = (clientData.planOptions || []).find(
+      o => o["Category"] === "Block Type" && o["Option"] === blockType
+    );
+    if (!opt || (!opt["Expected Volume"] && !opt["Expected Intensity"])) return null;
+
+    // Find the training week whose date falls inside this planned week
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const actualWeek = (clientData.weeklySummary || []).find(r => {
+      const d = toDate(r);
+      return d && d >= weekStart && d <= weekEnd;
+    });
+    if (!actualWeek) return null;
+
+    const allVolumes = (clientData.weeklySummary || [])
+      .map(r => Number(r["Total Volume"]) || 0).filter(v => v > 0);
+    if (allVolumes.length < 3) return null; // not enough history to judge against
+
+    const sorted = [...allVolumes].sort((a, b) => a - b);
+    const lowCut = sorted[Math.floor(sorted.length * 0.33)];
+    const highCut = sorted[Math.floor(sorted.length * 0.67)];
+    const thisVolume = Number(actualWeek["Total Volume"]) || 0;
+
+    let actualBand = "Moderate";
+    if (thisVolume <= lowCut) actualBand = "Low";
+    else if (thisVolume >= highCut) actualBand = "High";
+
+    const expectedVolume = opt["Expected Volume"];
+    if (!expectedVolume) return null;
+
+    if (actualBand === expectedVolume) {
+      return { ok: true, text: `Volume tracking as planned (${actualBand.toLowerCase()})` };
+    }
+    return {
+      ok: false,
+      text: `Plan expects ${String(expectedVolume).toLowerCase()} volume — logged volume was ${actualBand.toLowerCase()}`
+    };
+  }
+
+  function renderPlannerWeeks(planStart) {
+    const container = document.getElementById("plannerWeeks");
+    const plan = clientData.macrocyclePlan || [];
+    const planByWeek = {};
+    plan.forEach(r => { planByWeek[Number(r["Week Number"])] = r; });
+
+    const optionColours = {};
+    (clientData.planOptions || []).forEach(o => {
+      optionColours[o["Option"]] = o["Colour"];
+    });
+
+    // Which week are they actually in right now?
+    const today = new Date();
+    const msPerWeek = 7 * 86400000;
+    const currentWeekNum = Math.floor((today - planStart) / msPerWeek) + 1;
+
+    let html = "";
+    for (let w = 1; w <= 52; w++) {
+      const weekStart = new Date(planStart);
+      weekStart.setDate(planStart.getDate() + (w - 1) * 7);
+      const row = planByWeek[w] || {};
+      const isCurrent = w === currentWeekNum;
+
+      const tagFields = ["Macrocycle Phase", "Mesocycle Phase", "Block Type", "Programming Type", "Nutrition Phase"];
+      const tags = tagFields
+        .filter(f => row[f])
+        .map(f => {
+          const colour = optionColours[row[f]];
+          if (!colour) return `<span class="plan-tag">${row[f]}</span>`;
+          // Nutrition phases run as an 11-step gradient — a washed-out tint
+          // makes adjacent steps indistinguishable, so those render solid.
+          const style = (f === "Nutrition Phase")
+            ? ` style="background:${colour}; color:#fff;"`
+            : ` style="background:${colour}22; color:${colour};"`;
+          return `<span class="plan-tag"${style}>${row[f]}</span>`;
+        }).join("");
+
+      const drift = isCurrent || (weekStart < today) ? computePlanDrift(row, weekStart) : null;
+
+      html += `
+        <div class="plan-week ${isCurrent ? "is-current" : ""}">
+          <div class="plan-week-head">
+            <div class="plan-week-num">Week ${w}${isCurrent ? '<span class="current-badge">Now</span>' : ""}</div>
+            <div class="plan-week-date">${formatDMY(weekStart)}</div>
+          </div>
+          ${tags ? `<div class="plan-tags">${tags}</div>` : `<div class="plan-tags"><span class="plan-tag">Unplanned</span></div>`}
+          ${row["Competition"] ? `<div class="plan-comp">🏆 ${row["Competition"]}${row["Location"] ? ` <span>· ${row["Location"]}</span>` : ""}</div>` : ""}
+          ${row["Notes"] ? `<div class="plan-note">${row["Notes"]}</div>` : ""}
+          ${drift ? `<div class="plan-drift ${drift.ok ? "ok" : ""}">${drift.text}</div>` : ""}
+        </div>`;
+    }
+
+    container.innerHTML = html;
+
+    // Scroll the current week into view on first render
+    const currentEl = container.querySelector(".plan-week.is-current");
+    if (currentEl) {
+      requestAnimationFrame(() => currentEl.scrollIntoView({ block: "center", behavior: "smooth" }));
+    }
+  }
+
+  function wirePlannerControls(planStart) {
+    const editBtn = document.getElementById("planEditBtn");
+    const editor = document.getElementById("planEditor");
+
+    editBtn.onclick = () => {
+      editor.style.display = editor.style.display === "none" ? "block" : "none";
+      document.getElementById("planSaveMsg").textContent = "";
+    };
+    document.getElementById("planCancelBtn").onclick = () => {
+      editor.style.display = "none";
+    };
+    document.getElementById("planSaveBtn").onclick = () => savePlanRange(planStart);
+  }
+
+  async function savePlanRange(planStart) {
+    const startWeek = Number(document.getElementById("planStartWeek").value);
+    const endWeek = Number(document.getElementById("planEndWeek").value);
+    const msgEl = document.getElementById("planSaveMsg");
+
+    function showMsg(text, isError) {
+      msgEl.textContent = text;
+      msgEl.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    if (!startWeek || !endWeek || startWeek < 1 || endWeek > 52 || startWeek > endWeek) {
+      showMsg("Check your week range — must be 1 to 52, and start before end.", true);
+      return;
+    }
+
+    // Only send fields the coach actually set. "__CLEAR__" explicitly blanks a field.
+    const values = {};
+    PLAN_FIELD_MAP.forEach(([selectId, field]) => {
+      const val = document.getElementById(selectId).value;
+      if (val === "__CLEAR__") values[field] = "";
+      else if (val) values[field] = val;
+    });
+    ["planCompetition:Competition", "planLocation:Location", "planNotes:Notes"].forEach(pair => {
+      const [id, field] = pair.split(":");
+      const val = document.getElementById(id).value.trim();
+      if (val) values[field] = val;
+    });
+
+    if (!Object.keys(values).length) {
+      showMsg("Nothing to apply — set at least one field.", true);
+      return;
+    }
+
+    const saveBtn = document.getElementById("planSaveBtn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Applying...";
+    showLoading("Updating plan...");
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "savePlanRange",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          planStartDate: clientData.planStartDate,
+          startWeek, endWeek, values
+        })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        showMsg(data.error, true);
+      } else {
+        showMsg(`Updated ${data.weeksUpdated} week${data.weeksUpdated === 1 ? "" : "s"}.`, false);
+        // Pull fresh data so the week list reflects the change immediately
+        const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+        const refreshed = await (await fetch(url)).json();
+        if (!refreshed.error) {
+          clientData = refreshed;
+          renderPlannerWeeks(planStart);
+        }
+      }
+    } catch (err) {
+      showMsg("Couldn't save — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Apply to Week Range";
+      hideLoading();
+    }
   }
 
   function renderCustomLegend(canvasId, items) {
