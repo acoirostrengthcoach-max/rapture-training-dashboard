@@ -672,6 +672,21 @@
     padding-right: 34px;
   }
   select option { background-color: var(--card); color: var(--text); }
+
+  /* ---------------------------------------------------------------
+     Number inputs render native up/down spinner arrows on desktop
+     browsers (not mobile), which don't match the theme. Hiding them
+     keeps number fields visually consistent across both.
+     --------------------------------------------------------------- */
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 </style>
 </head>
 <body>
