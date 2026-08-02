@@ -1772,7 +1772,9 @@
   // data will ever exist for them.
   function configureUiForClientType() {
     const isNutritionOnly = clientData.clientType === "Nutrition Only";
-    const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory", "planner"];
+    // Planner stays available to Nutrition Only clients — nutrition phases,
+    // macro targets and competition dates are all still relevant to them.
+    const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory"];
 
     document.querySelectorAll(".tab").forEach(tab => {
       if (trainingTabNames.includes(tab.dataset.tab)) {
@@ -2589,13 +2591,14 @@
       const blockColour = optionColours[blockType];
       const nutColour = optionColours[nutritionPhase];
 
-      const actual = (weekStart <= today) ? getActualTrainingForWeek(weekStart) : null;
+      const isNutritionOnly = clientData.clientType === "Nutrition Only";
+      const actual = (!isNutritionOnly && weekStart <= today) ? getActualTrainingForWeek(weekStart) : null;
 
       const hasDetail = row["Macrocycle Phase"] || row["Mesocycle Phase"] || row["Programming Type"] ||
         row["Competition"] || row["Notes"] || row["Supplementation"] ||
         row["Protein Target"] || row["Calorie Target"];
 
-      const drift = (weekStart <= today) ? computePlanDrift(row, weekStart) : null;
+      const drift = (!isNutritionOnly && weekStart <= today) ? computePlanDrift(row, weekStart) : null;
 
       let detailHtml = "";
       if (hasDetail || drift || actual) {
@@ -3024,6 +3027,9 @@
 
   function renderDeloadWarnings(yearStart) {
     const container = document.getElementById("deloadWarnings");
+
+    // Deload spacing is a training concern — not relevant to nutrition-only clients
+    if (clientData.clientType === "Nutrition Only") { container.innerHTML = ""; return; }
     const planByWeek = {};
     (clientData.macrocyclePlan || []).forEach(r => {
       if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
