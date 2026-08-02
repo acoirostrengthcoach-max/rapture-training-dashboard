@@ -250,33 +250,73 @@
   /* ---------- Macrocycle planner ---------- */
   .plan-editor-hint { font-size: 11px; color: var(--muted); margin: 0 0 14px; }
   .plan-week {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 11px 13px; margin-bottom: 7px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 9px;
+    margin-bottom: 4px; overflow: hidden;
   }
-  .plan-week.is-current { border-color: var(--accent); background: rgba(212,162,76,0.07); }
-  .plan-week-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .plan-week-num { font-size: 13px; font-weight: 700; }
-  .plan-week-num .current-badge {
-    font-size: 9px; background: var(--accent); color: var(--bg);
-    padding: 2px 7px; border-radius: 999px; margin-left: 6px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.4px;
+  .plan-week.is-current { border-color: var(--accent); }
+  .plan-row-main {
+    display: flex; align-items: center; gap: 9px; padding: 7px 10px 7px 0;
   }
-  .plan-week-date { font-size: 11px; color: var(--muted); }
-  .plan-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
-  .plan-tag {
-    font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
-    background: rgba(165,150,127,0.15); color: var(--muted);
+  .plan-week.expandable .plan-row-main { cursor: pointer; }
+  .plan-stripe { width: 4px; align-self: stretch; flex-shrink: 0; min-height: 34px; }
+  .plan-wk {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    min-width: 20px; text-align: center; flex-shrink: 0;
   }
+  .plan-mid { flex: 1; min-width: 0; }
+  .plan-block-name {
+    font-size: 12.5px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .plan-block-name .unplanned { color: var(--muted); font-weight: 400; font-style: italic; }
+  .plan-week-date { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .current-badge {
+    font-size: 8.5px; background: var(--accent); color: var(--bg);
+    padding: 1px 6px; border-radius: 999px; margin-left: 6px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .plan-nut-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .plan-comp-flag { font-size: 12px; flex-shrink: 0; }
+  .plan-chev {
+    color: var(--muted); font-size: 17px; flex-shrink: 0;
+    transition: transform 0.2s ease; line-height: 1;
+  }
+  .plan-week.expanded .plan-chev { transform: rotate(90deg); }
+  .plan-detail {
+    display: none; padding: 10px 12px 12px 14px;
+    border-top: 1px solid var(--border); background: var(--card2);
+  }
+  .plan-week.expanded .plan-detail { display: block; }
+  .pd-grid { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; }
+  .pd-label {
+    display: inline-block; min-width: 78px; color: var(--muted);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .pd-macros {
+    margin-top: 8px; font-size: 12px; color: var(--accent); font-weight: 600;
+  }
+  .pd-supps { margin-top: 6px; font-size: 11.5px; }
   .plan-comp {
-    margin-top: 7px; font-size: 12px; color: var(--flame); font-weight: 700;
+    margin-top: 8px; font-size: 12px; color: var(--flame); font-weight: 700;
   }
   .plan-comp span { color: var(--muted); font-weight: 400; font-size: 11px; }
   .plan-note { margin-top: 6px; font-size: 11px; color: var(--muted); font-style: italic; }
   .plan-drift {
-    margin-top: 7px; font-size: 11px; padding: 6px 9px; border-radius: 7px;
+    margin-top: 8px; font-size: 11px; padding: 6px 9px; border-radius: 7px;
     background: rgba(182,64,44,0.14); color: #e8927a; line-height: 1.4;
   }
   .plan-drift.ok { background: rgba(122,180,120,0.14); color: #7ab478; }
+  .plan-supp-check {
+    display: flex; align-items: center; gap: 8px; padding: 7px 0;
+    font-size: 13px; cursor: pointer;
+  }
+  .plan-supp-check input { width: auto; margin: 0; }
+  .plan-phase-banner {
+    background: rgba(212,162,76,0.1); border: 1px solid var(--accent-dim);
+    border-radius: 8px; padding: 8px 11px; margin-bottom: 12px;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .plan-phase-banner b { color: var(--accent); }
 
   .chart-card {
     background: var(--card); border: 1px solid var(--border);
@@ -791,6 +831,7 @@
 
       <div class="checkin-form-section">
         <h3>Nutrition</h3>
+        <div class="plan-phase-banner" id="planPhaseBanner" style="display:none;"></div>
         <div class="form-grid">
           <div class="form-field"><label>Protein (g) <span class="macro-target" id="proteinTargetHint"></span></label><input type="number" id="ciProtein"></div>
           <div class="form-field"><label>Fats (g) <span class="macro-target" id="fatTargetHint"></span></label><input type="number" id="ciFats"></div>
@@ -957,6 +998,20 @@
           <div class="form-field"><label>Block Type</label><select id="planBlockType"></select></div>
           <div class="form-field"><label>Programming Type</label><select id="planProgType"></select></div>
           <div class="form-field"><label>Nutrition Phase</label><select id="planNutritionPhase"></select></div>
+
+          <div class="form-field"><label>Calorie Target</label><input type="number" id="planCalorieTarget" placeholder="Leave blank for no change"></div>
+          <div class="form-grid">
+            <div class="form-field"><label>Protein (g)</label><input type="number" id="planProteinTarget"></div>
+            <div class="form-field"><label>Fat (g)</label><input type="number" id="planFatTarget"></div>
+            <div class="form-field"><label>Carbs (g)</label><input type="number" id="planCarbTarget"></div>
+          </div>
+
+          <div class="form-field">
+            <label>Supplementation</label>
+            <div id="planSuppList"></div>
+            <p class="plan-editor-hint" style="margin-top:6px;">Tick any to set them for this range. Leaving all unticked makes no change.</p>
+          </div>
+
           <div class="form-field"><label>Competition (optional)</label><input type="text" id="planCompetition" placeholder="Leave blank for no change"></div>
           <div class="form-field"><label>Location (optional)</label><input type="text" id="planLocation" placeholder="Leave blank for no change"></div>
           <div class="form-field"><label>Notes (optional)</label><input type="text" id="planNotes" placeholder="Leave blank for no change"></div>
@@ -2009,6 +2064,17 @@
         `<option value="__CLEAR__">— clear this field —</option>` +
         relevant.map(o => `<option value="${o["Option"]}">${o["Option"]}</option>`).join("");
     });
+
+    // Supplementation is multi-select, so it gets checkboxes rather than a dropdown
+    const suppList = document.getElementById("planSuppList");
+    if (suppList) {
+      const supps = options.filter(o => o["Category"] === "Supplementation");
+      suppList.innerHTML = supps.map((s, i) => `
+        <label class="plan-supp-check">
+          <input type="checkbox" class="plan-supp" value="${s["Option"]}">
+          ${s["Option"]}
+        </label>`).join("");
+    }
   }
 
   // Compares a client's ACTUAL logged training for a week against what the
@@ -2069,7 +2135,6 @@
       optionColours[o["Option"]] = o["Colour"];
     });
 
-    // Which week are they actually in right now?
     const today = new Date();
     const msPerWeek = 7 * 86400000;
     const currentWeekNum = Math.floor((today - planStart) / msPerWeek) + 1;
@@ -2081,38 +2146,68 @@
       const row = planByWeek[w] || {};
       const isCurrent = w === currentWeekNum;
 
-      const tagFields = ["Macrocycle Phase", "Mesocycle Phase", "Block Type", "Programming Type", "Nutrition Phase"];
-      const tags = tagFields
-        .filter(f => row[f])
-        .map(f => {
-          const colour = optionColours[row[f]];
-          if (!colour) return `<span class="plan-tag">${row[f]}</span>`;
-          // Nutrition phases run as an 11-step gradient — a washed-out tint
-          // makes adjacent steps indistinguishable, so those render solid.
-          const style = (f === "Nutrition Phase")
-            ? ` style="background:${colour}; color:#fff;"`
-            : ` style="background:${colour}22; color:${colour};"`;
-          return `<span class="plan-tag"${style}>${row[f]}</span>`;
-        }).join("");
+      const blockType = row["Block Type"];
+      const nutritionPhase = row["Nutrition Phase"];
+      const blockColour = optionColours[blockType];
+      const nutColour = optionColours[nutritionPhase];
 
-      const drift = isCurrent || (weekStart < today) ? computePlanDrift(row, weekStart) : null;
+      // Compact row: a colour stripe for block type, week number, date,
+      // block name, and a nutrition dot — everything else lives in the
+      // expandable detail so 52 weeks stay scannable.
+      const hasDetail = row["Macrocycle Phase"] || row["Mesocycle Phase"] || row["Programming Type"] ||
+        row["Competition"] || row["Notes"] || row["Supplementation"] ||
+        row["Protein Target"] || row["Calorie Target"];
+
+      const drift = (weekStart <= today) ? computePlanDrift(row, weekStart) : null;
+
+      let detailHtml = "";
+      if (hasDetail || drift) {
+        const detailBits = [];
+        if (row["Macrocycle Phase"]) detailBits.push(`<span class="pd-label">Macro</span> ${row["Macrocycle Phase"]}`);
+        if (row["Mesocycle Phase"]) detailBits.push(`<span class="pd-label">Meso</span> ${row["Mesocycle Phase"]}`);
+        if (row["Programming Type"]) detailBits.push(`<span class="pd-label">Programming</span> ${row["Programming Type"]}`);
+        if (nutritionPhase) detailBits.push(`<span class="pd-label">Nutrition</span> ${nutritionPhase}`);
+
+        const macros = [];
+        if (row["Calorie Target"]) macros.push(`${row["Calorie Target"]} kcal`);
+        if (row["Protein Target"]) macros.push(`P ${row["Protein Target"]}g`);
+        if (row["Fat Target"]) macros.push(`F ${row["Fat Target"]}g`);
+        if (row["Carb Target"]) macros.push(`C ${row["Carb Target"]}g`);
+
+        detailHtml = `
+          <div class="plan-detail">
+            ${detailBits.length ? `<div class="pd-grid">${detailBits.map(b => `<div>${b}</div>`).join("")}</div>` : ""}
+            ${macros.length ? `<div class="pd-macros">${macros.join(" · ")}</div>` : ""}
+            ${row["Supplementation"] ? `<div class="pd-supps"><span class="pd-label">Supps</span> ${row["Supplementation"]}</div>` : ""}
+            ${row["Competition"] ? `<div class="plan-comp">🏆 ${row["Competition"]}${row["Location"] ? ` <span>· ${row["Location"]}</span>` : ""}</div>` : ""}
+            ${row["Notes"] ? `<div class="plan-note">${row["Notes"]}</div>` : ""}
+            ${drift ? `<div class="plan-drift ${drift.ok ? "ok" : ""}">${drift.text}</div>` : ""}
+          </div>`;
+      }
 
       html += `
-        <div class="plan-week ${isCurrent ? "is-current" : ""}">
-          <div class="plan-week-head">
-            <div class="plan-week-num">Week ${w}${isCurrent ? '<span class="current-badge">Now</span>' : ""}</div>
-            <div class="plan-week-date">${formatDMY(weekStart)}</div>
+        <div class="plan-week ${isCurrent ? "is-current" : ""} ${(hasDetail || drift) ? "expandable" : ""}">
+          <div class="plan-row-main">
+            <div class="plan-stripe" style="background:${blockColour || "var(--border)"};"></div>
+            <div class="plan-wk">${w}</div>
+            <div class="plan-mid">
+              <div class="plan-block-name">${blockType || "<span class='unplanned'>Unplanned</span>"}</div>
+              <div class="plan-week-date">${formatDMY(weekStart)}${isCurrent ? '<span class="current-badge">Now</span>' : ""}</div>
+            </div>
+            ${nutritionPhase ? `<div class="plan-nut-dot" style="background:${nutColour || "var(--muted)"};" title="${nutritionPhase}"></div>` : ""}
+            ${(hasDetail || drift) ? `<div class="plan-chev">›</div>` : ""}
+            ${row["Competition"] ? `<div class="plan-comp-flag">🏆</div>` : ""}
           </div>
-          ${tags ? `<div class="plan-tags">${tags}</div>` : `<div class="plan-tags"><span class="plan-tag">Unplanned</span></div>`}
-          ${row["Competition"] ? `<div class="plan-comp">🏆 ${row["Competition"]}${row["Location"] ? ` <span>· ${row["Location"]}</span>` : ""}</div>` : ""}
-          ${row["Notes"] ? `<div class="plan-note">${row["Notes"]}</div>` : ""}
-          ${drift ? `<div class="plan-drift ${drift.ok ? "ok" : ""}">${drift.text}</div>` : ""}
+          ${detailHtml}
         </div>`;
     }
 
     container.innerHTML = html;
 
-    // Scroll the current week into view on first render
+    container.querySelectorAll(".plan-week.expandable").forEach(el => {
+      el.querySelector(".plan-row-main").addEventListener("click", () => el.classList.toggle("expanded"));
+    });
+
     const currentEl = container.querySelector(".plan-week.is-current");
     if (currentEl) {
       requestAnimationFrame(() => currentEl.scrollIntoView({ block: "center", behavior: "smooth" }));
@@ -2155,11 +2250,16 @@
       if (val === "__CLEAR__") values[field] = "";
       else if (val) values[field] = val;
     });
-    ["planCompetition:Competition", "planLocation:Location", "planNotes:Notes"].forEach(pair => {
+    ["planCompetition:Competition", "planLocation:Location", "planNotes:Notes",
+     "planCalorieTarget:Calorie Target", "planProteinTarget:Protein Target",
+     "planFatTarget:Fat Target", "planCarbTarget:Carb Target"].forEach(pair => {
       const [id, field] = pair.split(":");
       const val = document.getElementById(id).value.trim();
       if (val) values[field] = val;
     });
+
+    const checkedSupps = Array.from(document.querySelectorAll(".plan-supp:checked")).map(c => c.value);
+    if (checkedSupps.length) values["Supplementation"] = checkedSupps.join(", ");
 
     if (!Object.keys(values).length) {
       showMsg("Nothing to apply — set at least one field.", true);
@@ -2517,14 +2617,17 @@
   // to dig through the spreadsheet to remember what they're aiming for.
   function renderTargetsCard() {
     const card = document.getElementById("targetsCard");
-    const hasAnyTarget = clientData.calorieTarget || clientData.proteinTarget || clientData.fatTarget || clientData.carbTarget;
+    const t = getTargetsForDate(new Date().toISOString().split("T")[0]);
+    const hasAnyTarget = t.calories || t.protein || t.fat || t.carb;
     if (!hasAnyTarget) { card.style.display = "none"; return; }
 
     card.style.display = "block";
-    document.getElementById("targetCalories").textContent = clientData.calorieTarget || "—";
-    document.getElementById("targetProtein").textContent = clientData.proteinTarget ? clientData.proteinTarget + "g" : "—";
-    document.getElementById("targetFat").textContent = clientData.fatTarget ? clientData.fatTarget + "g" : "—";
-    document.getElementById("targetCarb").textContent = clientData.carbTarget ? clientData.carbTarget + "g" : "—";
+    document.querySelector("#targetsCard .targets-card-label").textContent =
+      t.source === "plan" && t.phase ? `Your Targets · ${t.phase}` : "Your Targets";
+    document.getElementById("targetCalories").textContent = t.calories || "—";
+    document.getElementById("targetProtein").textContent = t.protein ? t.protein + "g" : "—";
+    document.getElementById("targetFat").textContent = t.fat ? t.fat + "g" : "—";
+    document.getElementById("targetCarb").textContent = t.carb ? t.carb + "g" : "—";
   }
 
   function renderLatestCheckin() {
@@ -2895,13 +2998,63 @@
 
   // Coach-set macro targets, shown as a reference next to each input
   // (e.g. "Target: 150g") — purely informational, doesn't affect what's saved.
+  // Returns the macro targets that apply to a given date — the planner's
+  // week-specific values take priority over the client's static defaults,
+  // so targets shift automatically as they move through their plan.
+  function getTargetsForDate(dateValue) {
+    const fallback = {
+      calories: clientData.calorieTarget,
+      protein: clientData.proteinTarget,
+      fat: clientData.fatTarget,
+      carb: clientData.carbTarget,
+      source: "default"
+    };
+
+    const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
+    const target = dateValue ? parseDate(dateValue) : new Date();
+    if (!planStart || !target) return fallback;
+
+    const weekNum = Math.floor((target - planStart) / (7 * 86400000)) + 1;
+    if (weekNum < 1 || weekNum > 52) return fallback;
+
+    const planRow = (clientData.macrocyclePlan || [])
+      .find(r => Number(r["Week Number"]) === weekNum);
+    if (!planRow) return fallback;
+
+    const hasAny = planRow["Calorie Target"] || planRow["Protein Target"] ||
+      planRow["Fat Target"] || planRow["Carb Target"];
+    if (!hasAny) return fallback;
+
+    return {
+      calories: planRow["Calorie Target"] || fallback.calories,
+      protein: planRow["Protein Target"] || fallback.protein,
+      fat: planRow["Fat Target"] || fallback.fat,
+      carb: planRow["Carb Target"] || fallback.carb,
+      phase: planRow["Nutrition Phase"] || "",
+      weekNum,
+      source: "plan"
+    };
+  }
+
   function populateMacroTargetHints() {
-    const proteinHint = document.getElementById("proteinTargetHint");
-    const fatHint = document.getElementById("fatTargetHint");
-    const carbHint = document.getElementById("carbTargetHint");
-    proteinHint.textContent = clientData.proteinTarget ? `(Target: ${clientData.proteinTarget}g)` : "";
-    fatHint.textContent = clientData.fatTarget ? `(Target: ${clientData.fatTarget}g)` : "";
-    carbHint.textContent = clientData.carbTarget ? `(Target: ${clientData.carbTarget}g)` : "";
+    const dateVal = document.getElementById("ciDate").value;
+    const t = getTargetsForDate(dateVal);
+
+    document.getElementById("proteinTargetHint").textContent = t.protein ? `(Target: ${t.protein}g)` : "";
+    document.getElementById("fatTargetHint").textContent = t.fat ? `(Target: ${t.fat}g)` : "";
+    document.getElementById("carbTargetHint").textContent = t.carb ? `(Target: ${t.carb}g)` : "";
+
+    // Show which plan week/phase these targets came from, when from the plan
+    const banner = document.getElementById("planPhaseBanner");
+    if (banner) {
+      if (t.source === "plan") {
+        banner.style.display = "block";
+        banner.innerHTML = `Week ${t.weekNum} of your plan${t.phase ? ` · <b>${t.phase}</b>` : ""}` +
+          (t.calories ? ` · <b>${t.calories}</b> kcal target` : "");
+      } else {
+        banner.style.display = "none";
+      }
+    }
   }
 
   function closeCheckinForm() {
@@ -2947,6 +3100,10 @@
   function loadExistingCheckinForDate() {
     const dateInput = document.getElementById("ciDate").value; // YYYY-MM-DD
     if (!dateInput) return;
+
+    // Targets can differ week to week in the plan, so refresh them
+    // whenever the selected date changes.
+    populateMacroTargetHints();
 
     const picked = parseDate(dateInput);
     const existing = (clientData.dailyCheckins || []).find(r => {
