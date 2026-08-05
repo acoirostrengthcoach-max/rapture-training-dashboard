@@ -2333,9 +2333,10 @@
     const maxYear = Math.max(currentYear + 1, 2);
     let html = "";
     for (let y = 1; y <= maxYear; y++) {
-      const yearStart = new Date(planStart);
-      yearStart.setDate(planStart.getDate() + (y - 1) * 52 * 7);
-      html += `<option value="${y}" ${y === selectedPlanYear ? "selected" : ""}>Year ${y} · from ${formatDMY(yearStart)}</option>`;
+      const nominalStart = new Date(planStart);
+      nominalStart.setDate(planStart.getDate() + (y - 1) * 52 * 7);
+      const actual = getWeekStartDate(planStart, y, 1, nominalStart);
+      html += `<option value="${y}" ${y === selectedPlanYear ? "selected" : ""}>Year ${y} · from ${formatDMY(actual || nominalStart)}</option>`;
     }
     select.innerHTML = html;
     select.onchange = () => {
@@ -2348,8 +2349,12 @@
     const yearStart = new Date(planStart);
     yearStart.setDate(planStart.getDate() + (selectedPlanYear - 1) * 52 * 7);
 
+    // Show the real week 1 date from the sheet, not a calculated one —
+    // they can differ when a plan doesn't start the week the sheet was set up.
+    const actualStart = getWeekStartDate(planStart, selectedPlanYear, 1, yearStart);
+
     document.getElementById("plannerSub").textContent =
-      `Year ${selectedPlanYear} · 52 weeks from ${formatDMY(yearStart)}`;
+      `Year ${selectedPlanYear} · 52 weeks from ${formatDMY(actualStart || yearStart)}`;
 
     renderPlannerWeeks(planStart, yearStart);
     renderYearStrip(planStart, yearStart);
@@ -2417,12 +2422,16 @@
       .map(r => {
         const year = Number(r["Plan Year"] || 1);
         const w = Number(r["Week Number"]);
-        const absWeek = ((year - 1) * 52) + w;
-        const weekStart = new Date(planStart);
-        weekStart.setDate(planStart.getDate() + (absWeek - 1) * 7);
+        // Prefer the row's own stored date over counting forward
+        let weekStart = parseDate(r["Week Start"]);
+        if (!weekStart && planStart) {
+          const absWeek = ((year - 1) * 52) + w;
+          weekStart = new Date(planStart);
+          weekStart.setDate(planStart.getDate() + (absWeek - 1) * 7);
+        }
         return { row: r, year, weekNum: w, date: weekStart };
       })
-      .filter(c => c.date >= today)
+      .filter(c => c.date && c.date >= today)
       .sort((a, b) => a.date - b.date);
 
     if (!upcoming.length) { el.style.display = "none"; return; }
@@ -2581,8 +2590,7 @@
 
     let html = "";
     for (let w = 1; w <= 52; w++) {
-      const weekStart = new Date(yearStart);
-      weekStart.setDate(yearStart.getDate() + (w - 1) * 7);
+      const weekStart = getWeekStartDate(planStart, selectedPlanYear, w, yearStart);
       const row = planByWeek[w] || {};
       const isCurrent = w === currentWeekNum;
 
@@ -2999,11 +3007,33 @@
     `;
   }
 
-  // Works out which plan year and week a date falls into. Once a client
-  // passes week 52 they roll into Year 2 week 1, and so on — their start
-  // date never needs changing, and each year is planned separately.
+  // Works out which plan year and week a date falls into.
+  //
+  // Stored Week Start dates from the client's spreadsheet are the source of
+  // truth — a plan doesn't always begin the week a client's sheet was set up
+  // (e.g. they finish two weeks of an old block first), so counting forward
+  // from Plan Start Date alone would shift everything out of alignment.
+  // Plan Start Date is only used as a fallback when no dated rows exist.
   function getPlanPosition(planStart, targetDate) {
-    if (!planStart || !targetDate) return null;
+    if (!targetDate) return null;
+
+    // Find the planned week whose 7-day span contains the target date
+    const dated = (clientData.macrocyclePlan || [])
+      .map(r => ({ row: r, date: parseDate(r["Week Start"]) }))
+      .filter(x => x.date);
+
+    for (const item of dated) {
+      const end = new Date(item.date);
+      end.setDate(item.date.getDate() + 6);
+      if (targetDate >= item.date && targetDate <= end) {
+        const year = Number(item.row["Plan Year"] || 1);
+        const week = Number(item.row["Week Number"]);
+        return { year, week, absoluteWeek: ((year - 1) * 52) + week };
+      }
+    }
+
+    // No dated week covers this date — fall back to counting from the start
+    if (!planStart) return null;
     const weeksElapsed = Math.floor((targetDate - planStart) / (7 * 86400000));
     if (weeksElapsed < 0) return null;
     return {
@@ -3011,6 +3041,21 @@
       week: (weeksElapsed % 52) + 1,
       absoluteWeek: weeksElapsed + 1
     };
+  }
+
+  // Returns the stored date for a given plan week, falling back to counting
+  // forward from the year's nominal start when that week has no date yet.
+  function getWeekStartDate(planStart, year, week, yearStart) {
+    const row = planRowFor(year, week);
+    if (row) {
+      const stored = parseDate(row["Week Start"]);
+      if (stored) return stored;
+    }
+    const base = yearStart || planStart;
+    if (!base) return null;
+    const d = new Date(base);
+    d.setDate(base.getDate() + (week - 1) * 7);
+    return d;
   }
 
   function planRowFor(year, week) {
