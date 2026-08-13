@@ -247,6 +247,73 @@
     padding: 10px 12px; border-radius: 6px; margin-top: 4px;
   }
 
+
+  /* ---------- Meal plan ---------- */
+  .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
+  .meal-config {
+    font-size: 10.5px; color: var(--muted); margin: 0 0 14px;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+
+  .day-totals { display: flex; gap: 8px; }
+  .dt-col {
+    flex: 1; text-align: center; background: var(--card2);
+    border-radius: 10px; padding: 10px 6px; min-width: 0;
+  }
+  .dt-label {
+    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.4px; margin-bottom: 4px;
+  }
+  .dt-actual { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.1; }
+  .dt-actual.on { color: #7ab478; }
+  .dt-actual.near { color: var(--accent); }
+  .dt-actual.off { color: #e8927a; }
+  .dt-target { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .dt-diff { font-size: 10px; font-weight: 600; margin-top: 3px; }
+  .dt-diff.on { color: #7ab478; }
+  .dt-diff.near { color: var(--accent); }
+  .dt-diff.off { color: #e8927a; }
+
+  .meal-warning {
+    background: rgba(182,64,44,0.14); color: #e8927a;
+    border-radius: 8px; padding: 9px 12px; margin-bottom: 14px;
+    font-size: 11.5px; line-height: 1.45;
+  }
+
+  .meal-block {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+  }
+  .meal-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 11px 13px 9px; border-bottom: 1px solid var(--border);
+  }
+  .meal-name { font-size: 13px; font-weight: 700; }
+  .meal-kcal { font-size: 12px; color: var(--accent); font-weight: 700; }
+  .meal-items { padding: 4px 13px 8px; }
+  .meal-item {
+    padding: 7px 0; border-bottom: 1px solid rgba(42,36,28,0.5);
+  }
+  .meal-item:last-child { border-bottom: none; }
+  .meal-item.missing { opacity: 0.65; }
+  .mi-name { font-size: 12.5px; font-weight: 600; }
+  .mi-note { display: block; font-size: 10.5px; color: var(--muted); font-style: italic; font-weight: 400; margin-top: 1px; }
+  .mi-warn { display: block; font-size: 10px; color: #e8927a; font-weight: 400; margin-top: 1px; }
+  .mi-qty { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .mi-macros { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  .meal-compare {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    padding: 8px 13px 10px; background: var(--card2);
+    border-top: 1px solid var(--border);
+  }
+  .mc-item { font-size: 11px; color: var(--muted); }
+  .mc-item b { color: var(--text); margin-right: 2px; }
+  .mc-target { opacity: 0.7; }
+  .mc-diff { margin-left: 4px; font-weight: 600; }
+  .mc-diff.on { color: #7ab478; }
+  .mc-diff.near { color: var(--accent); }
+  .mc-diff.off { color: #e8927a; }
+
   /* ---------- Macrocycle planner ---------- */
   .plan-editor-hint { font-size: 11px; color: var(--muted); margin: 0 0 14px; }
   .plan-week {
@@ -1008,6 +1075,10 @@
         <div class="checkin-tile" data-category="vitals">
           <div class="checkin-tile-icon">❤️</div>
           <div class="checkin-tile-name">Vitals</div>
+        </div>
+        <div class="checkin-tile" data-category="meals">
+          <div class="checkin-tile-icon">🍽️</div>
+          <div class="checkin-tile-name">Meal Plan</div>
         </div>
       </div>
     </div>
@@ -3120,6 +3191,369 @@
     });
   }
 
+
+  // ---------- Meal Plan ----------
+  // Distribution table: 15 meal configurations x 7 training windows.
+  // Each entry is [meal label, protein %, fat %, carb %] and every set
+  // sums to exactly 1.00. Edit values here directly if they need adjusting.
+  const MEAL_DISTRIBUTION = {
+    "3M2S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.1,0.2],["Meal 1 (Post)",0.3,0.05,0.3],["Meal 2",0.3,0.25,0.2],["Snack 2",0.075,0.3,0.05],["Meal 3",0.3,0.3,0.25]],
+      "M": [["Snack 1 (Pre)",0.025,0.1,0.25],["Meal 1 (Post)",0.3,0.05,0.3],["Meal 2",0.3,0.25,0.2],["Snack 2",0.075,0.3,0.05],["Meal 3",0.3,0.3,0.2]],
+      "MM": [["Meal 1",0.275,0.15,0.2],["Snack 1 (Pre)",0.025,0.075,0.2],["Meal 2 (Post)",0.3,0.075,0.3],["Snack 2",0.1,0.3,0.2],["Meal 3",0.3,0.4,0.1]],
+      "A": [["Meal 1",0.3,0.2,0.15],["Snack 1 (Pre)",0.025,0.075,0.25],["Meal 2 (Post)",0.3,0.075,0.3],["Snack 2",0.075,0.3,0.2],["Meal 3",0.3,0.35,0.1]],
+      "MA": [["Meal 1",0.3,0.4,0.1],["Meal 2",0.275,0.3,0.15],["Snack 1 (Pre)",0.025,0.1,0.25],["Meal 3 (Post)",0.3,0.05,0.3],["Snack 2",0.1,0.15,0.2]],
+      "E": [["Meal 1",0.25,0.4,0.15],["Snack 1",0.1,0.2,0.1],["Meal 2 (Pre)",0.2,0.25,0.25],["Meal 3 (Post)",0.3,0.05,0.3],["Snack 2",0.15,0.1,0.2]],
+      "N": [["Meal 1",0.25,0.2,0.25],["Snack 1",0.1,0.4,0.05],["Meal 2",0.25,0.3,0.15],["Meal 3 (Pre)",0.3,0.05,0.25],["Snack 2 (Post)",0.1,0.05,0.3]]
+    },
+    "3M3S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.25,0.05,0.3],["Snack 2",0.1,0.15,0.1],["Meal 2",0.275,0.3,0.15],["Snack 3",0.1,0.15,0.05],["Meal 3",0.25,0.3,0.2]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.25,0.05,0.3],["Snack 2",0.1,0.15,0.1],["Meal 2",0.275,0.3,0.15],["Snack 3",0.1,0.15,0.05],["Meal 3",0.25,0.3,0.2]],
+      "MM": [["Meal 1",0.2,0.2,0.2],["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 2 (Post)",0.2,0.05,0.3],["Snack 2",0.125,0.1,0.1],["Meal 3",0.2,0.2,0.15],["Snack 3",0.25,0.4,0.05]],
+      "A": [["Meal 1",0.2,0.225,0.15],["Snack 1 (Pre)",0.025,0.05,0.25],["Meal 2 (Post)",0.2,0.05,0.3],["Snack 2",0.125,0.1,0.1],["Meal 3",0.2,0.2,0.15],["Snack 3",0.25,0.375,0.05]],
+      "MA": [["Meal 1",0.275,0.4,0.1],["Snack 1",0.05,0.225,0.125],["Meal 2 (Pre)",0.2,0.075,0.25],["Snack 2 (Post)",0.025,0.05,0.3],["Meal 3",0.25,0.1,0.15],["Snack 3",0.2,0.15,0.075]],
+      "E": [["Meal 1",0.225,0.4,0.1],["Snack 1",0.1,0.25,0.05],["Meal 2",0.25,0.15,0.175],["Snack 2 (Pre)",0.025,0.05,0.25],["Meal 3 (Post)",0.25,0.05,0.3],["Snack 3",0.15,0.1,0.125]],
+      "N": [["Meal 1",0.25,0.35,0.1],["Snack 1",0.125,0.2,0.05],["Meal 2",0.225,0.3,0.15],["Snack 2",0.125,0.05,0.175],["Meal 3 (Pre)",0.2,0.05,0.25],["Snack 3 (Post)",0.075,0.05,0.275]]
+    },
+    "3M4S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.25,0.05,0.3],["Snack 2",0.075,0.1,0.075],["Meal 2",0.25,0.225,0.15],["Snack 3",0.075,0.125,0.05],["Meal 3",0.25,0.3,0.175],["Snack 4",0.075,0.15,0.05]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.25],["Meal 1 (Post)",0.25,0.05,0.3],["Snack 2",0.075,0.1,0.05],["Meal 2",0.25,0.225,0.15],["Snack 3",0.075,0.125,0.05],["Meal 3",0.25,0.3,0.15],["Snack 4",0.075,0.15,0.05]],
+      "MM": [["Meal 1",0.25,0.225,0.15],["Snack 1",0.075,0.125,0.05],["Snack 2 (Pre)",0.025,0.05,0.2],["Meal 2 (Post)",0.25,0.05,0.3],["Snack 3",0.075,0.1,0.075],["Meal 3",0.25,0.3,0.125],["Snack 4",0.075,0.15,0.1]],
+      "A": [["Snack 1",0.075,0.15,0.05],["Meal 1",0.25,0.275,0.125],["Snack 2",0.075,0.125,0.075],["Snack 3 (Pre)",0.025,0.05,0.2],["Meal 2 (Post)",0.25,0.05,0.3],["Snack 4",0.075,0.075,0.1],["Meal 3",0.25,0.275,0.15]],
+      "MA": [["Meal 1",0.25,0.3,0.125],["Snack 1",0.075,0.15,0.05],["Snack 2",0.075,0.125,0.05],["Meal 2",0.25,0.225,0.15],["Snack 3 (Pre)",0.025,0.05,0.2],["Meal 3 (Post)",0.25,0.05,0.3],["Snack 4",0.075,0.1,0.125]],
+      "E": [["Meal 1",0.25,0.325,0.075],["Snack 1",0.075,0.15,0.05],["Meal 2",0.25,0.225,0.125],["Snack 2",0.075,0.125,0.05],["Snack 3 (Pre)",0.025,0.05,0.2],["Meal 3 (Post)",0.25,0.05,0.3],["Snack 4",0.075,0.075,0.2]],
+      "N": [["Meal 1",0.25,0.35,0.075],["Snack 1",0.075,0.15,0.05],["Meal 2",0.25,0.225,0.125],["Snack 2",0.075,0.125,0.075],["Snack 3",0.075,0.05,0.075],["Meal 3 (Pre)",0.25,0.05,0.25],["Snack 4 (Post)",0.025,0.05,0.35]]
+    },
+    "4M": {
+      "EM": [["Meal 1 (Post)",0.25,0.1,0.3],["Meal 2",0.25,0.2,0.225],["Meal 3",0.25,0.3,0.2],["Meal 4",0.25,0.4,0.275]],
+      "M": [["Meal 1 (Pre)",0.2,0.125,0.275],["Meal 2 (Post)",0.2,0.1,0.3],["Meal 3",0.3,0.375,0.225],["Meal 4",0.3,0.4,0.2]],
+      "MM": [["Meal 1 (Pre)",0.225,0.25,0.3],["Meal 2 (Post)",0.225,0.05,0.3],["Meal 3",0.275,0.3,0.2],["Meal 4",0.275,0.4,0.2]],
+      "A": [["Meal 1",0.275,0.375,0.2],["Meal 2 (Pre)",0.225,0.125,0.25],["Meal 3 (Post)",0.225,0.1,0.3],["Meal 4",0.275,0.4,0.25]],
+      "MA": [["Meal 1",0.275,0.4,0.2],["Meal 2 (Pre)",0.225,0.175,0.25],["Meal 3 (Post)",0.225,0.1,0.3],["Meal 4",0.275,0.325,0.25]],
+      "E": [["Meal 1",0.275,0.4,0.2],["Meal 2",0.275,0.4,0.25],["Meal 3 (Pre)",0.225,0.1,0.25],["Meal 4 (Post)",0.225,0.1,0.3]],
+      "N": [["Meal 1",0.275,0.4,0.2],["Meal 2",0.275,0.3,0.2],["Meal 3 (Pre)",0.225,0.2,0.3],["Meal 4 (Post)",0.225,0.1,0.3]]
+    },
+    "4M1S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.245,0.05,0.3],["Meal 2",0.24,0.25,0.2],["Meal 3",0.24,0.35,0.1],["Meal 4",0.25,0.3,0.2]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.245,0.05,0.3],["Meal 2",0.24,0.25,0.2],["Meal 3",0.24,0.35,0.1],["Meal 4",0.25,0.3,0.2]],
+      "MM": [["Snack 1 (Pre)",0.025,0.05,0.25],["Meal 1 (Post)",0.225,0.05,0.3],["Meal 2",0.25,0.225,0.2],["Meal 3",0.25,0.325,0.15],["Meal 4",0.25,0.35,0.1]],
+      "A": [["Meal 1",0.25,0.25,0.15],["Snack 1 (Pre)",0.025,0.05,0.25],["Meal 2 (Post)",0.225,0.05,0.3],["Meal 3",0.25,0.225,0.2],["Meal 4",0.25,0.425,0.1]],
+      "MA": [["Meal 1",0.25,0.4,0.1],["Meal 2",0.25,0.3,0.15],["Snack 1 (Pre)",0.025,0.05,0.25],["Meal 3 (Post)",0.225,0.05,0.3],["Meal 4",0.25,0.2,0.2]],
+      "E": [["Meal 1",0.25,0.4,0.1],["Meal 2",0.25,0.325,0.15],["Meal 3",0.25,0.175,0.2],["Snack 1 (Pre)",0.025,0.05,0.25],["Meal 4 (Post)",0.225,0.05,0.3]],
+      "N": [["Meal 1",0.25,0.35,0.1],["Meal 2",0.225,0.3,0.175],["Meal 3",0.225,0.2,0.2],["Meal 4 (Pre)",0.25,0.1,0.25],["Snack (Post)",0.05,0.05,0.275]]
+    },
+    "4M2S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 1 (Post)",0.2,0.05,0.3],["Meal 2",0.225,0.15,0.15],["Snack 2",0.1,0.15,0.05],["Meal 3",0.2,0.3,0.1],["Meal 4",0.25,0.3,0.25]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.2,0.05,0.3],["Meal 2",0.225,0.15,0.15],["Snack 2",0.1,0.15,0.05],["Meal 3",0.2,0.3,0.1],["Meal 4",0.25,0.3,0.2]],
+      "MM": [["Meal 1",0.25,0.2,0.15],["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 2 (Post)",0.225,0.05,0.3],["Snack 2",0.05,0.1,0.1],["Meal 3",0.225,0.25,0.15],["Meal 4",0.225,0.35,0.1]],
+      "A": [["Meal 1",0.25,0.3,0.175],["Meal 2 (Pre)",0.2,0.1,0.225],["Meal 3 (Post)",0.225,0.05,0.3],["Snack 1",0.05,0.05,0.15],["Snack 2",0.05,0.1,0.1],["Meal 4",0.225,0.4,0.05]],
+      "MA": [["Meal 1",0.25,0.4,0.05],["Meal 2",0.225,0.3,0.2],["Snack 1 (Pre)",0.025,0.025,0.15],["Meal 3 (Post)",0.225,0.05,0.3],["Snack 2",0.05,0.075,0.1],["Meal 4",0.225,0.15,0.2]],
+      "E": [["Meal 1",0.225,0.4,0.05],["Meal 2",0.25,0.3,0.1],["Snack 1",0.025,0.05,0.1],["Meal 3 (Pre)",0.225,0.05,0.25],["Meal 4 (Post)",0.225,0.05,0.3],["Snack 2",0.05,0.15,0.2]],
+      "N": [["Meal 1",0.225,0.375,0.05],["Meal 2",0.25,0.3,0.1],["Snack 1",0.05,0.075,0.1],["Meal 3",0.225,0.15,0.25],["Meal 4 (Pre)",0.225,0.05,0.3],["Snack 2 (Post)",0.025,0.05,0.2]]
+    },
+    "5M": {
+      "EM": [["Meal 1 (Post)",0.2,0.05,0.3],["Meal 2",0.2,0.1,0.2],["Meal 3",0.2,0.2,0.15],["Meal 4",0.2,0.35,0.1],["Meal 5",0.2,0.3,0.25]],
+      "M": [["Meal 1 (Pre)",0.1,0.1,0.225],["Meal 2 (Post)",0.225,0.05,0.3],["Meal 3",0.225,0.15,0.175],["Meal 4",0.225,0.35,0.15],["Meal 5",0.225,0.35,0.15]],
+      "MM": [["Meal 1 (Pre)",0.125,0.125,0.25],["Meal 2 (Post)",0.2,0.05,0.3],["Meal 3",0.225,0.15,0.175],["Meal 4",0.225,0.325,0.15],["Meal 5",0.225,0.35,0.125]],
+      "A": [["Meal 1",0.225,0.3,0.15],["Meal 2 (Pre)",0.1,0.075,0.225],["Meal 3 (Post)",0.225,0.05,0.3],["Meal 4",0.225,0.175,0.2],["Meal 5",0.225,0.4,0.125]],
+      "MA": [["Meal 1",0.2,0.4,0.125],["Meal 2",0.225,0.35,0.175],["Meal 3 (Pre)",0.15,0.075,0.225],["Meal 4 (Post)",0.225,0.05,0.3],["Meal 5",0.2,0.125,0.175]],
+      "E": [["Meal 1",0.2,0.4,0.1],["Meal 2",0.225,0.375,0.175],["Meal 3 (Pre)",0.15,0.075,0.225],["Meal 4 (Post)",0.225,0.05,0.3],["Meal 5",0.2,0.1,0.2]],
+      "N": [["Meal 1",0.2,0.4,0.1],["Meal 2",0.2,0.3,0.15],["Meal 3",0.225,0.2,0.2],["Meal 4 (Pre)",0.15,0.05,0.25],["Meal 5 (Post)",0.225,0.05,0.3]]
+    },
+    "5M1S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.14],["Meal 1 (Post)",0.185,0.05,0.3],["Meal 2",0.2,0.15,0.18],["Meal 3",0.2,0.25,0.1],["Meal 4",0.19,0.25,0.1],["Meal 5",0.2,0.25,0.18]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 1 (Post)",0.185,0.05,0.3],["Meal 2",0.2,0.15,0.18],["Meal 3",0.2,0.25,0.12],["Meal 4",0.19,0.25,0.1],["Meal 5",0.2,0.25,0.1]],
+      "MM": [["Meal 1",0.195,0.1,0.15],["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 2 (Post)",0.18,0.05,0.3],["Meal 3",0.2,0.15,0.18],["Meal 4",0.2,0.3,0.1],["Meal 5",0.2,0.35,0.07]],
+      "A": [["Meal 1",0.2,0.35,0.07],["Meal 2",0.195,0.1,0.15],["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 3 (Post)",0.18,0.05,0.3],["Meal 4",0.2,0.15,0.18],["Meal 5",0.2,0.3,0.1]],
+      "MA": [["Meal 1",0.2,0.35,0.07],["Meal 2",0.2,0.3,0.1],["Meal 3",0.195,0.1,0.15],["Snack 1 (Pre)",0.025,0.05,0.2],["Meal 4 (Post)",0.18,0.05,0.3],["Meal 5",0.2,0.15,0.18]],
+      "E": [["Meal 1",0.2,0.35,0.07],["Meal 2",0.2,0.3,0.1],["Meal 3",0.195,0.2,0.15],["Meal 4 (Pre)",0.18,0.05,0.28],["Snack 1 (Post)",0.025,0.05,0.15],["Meal 5",0.2,0.05,0.25]],
+      "N": [["Meal 1",0.2,0.275,0.07],["Meal 2",0.2,0.25,0.1],["Meal 3",0.2,0.225,0.15],["Meal 4",0.205,0.15,0.23],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 5 (Post)",0.17,0.05,0.3]]
+    },
+    "5M2S": {
+      "EM": [["Snack 1 (Pre)",0.02,0.05,0.13],["Meal 1 (Post)",0.16,0.05,0.3],["Meal 2",0.18,0.15,0.15],["Snack 2",0.04,0.1,0.07],["Meal 3",0.2,0.2,0.1],["Meal 4",0.2,0.2,0.1],["Meal 5",0.2,0.25,0.15]],
+      "M": [["Snack 1 (Pre)",0.02,0.05,0.18],["Meal 1 (Post)",0.16,0.05,0.3],["Meal 2",0.18,0.15,0.15],["Snack 2",0.04,0.1,0.07],["Meal 3",0.2,0.2,0.1],["Meal 4",0.2,0.2,0.1],["Meal 5",0.2,0.25,0.1]],
+      "MM": [["Meal 1",0.18,0.1,0.15],["Snack 1 (Pre)",0.02,0.05,0.15],["Meal 2 (Post)",0.18,0.05,0.3],["Meal 3",0.18,0.125,0.175],["Snack 2",0.04,0.15,0.05],["Meal 4",0.2,0.25,0.1],["Meal 5",0.2,0.275,0.075]],
+      "A": [["Meal 1",0.18,0.2,0.15],["Meal 2",0.18,0.15,0.15],["Snack 1 (Pre)",0.02,0.05,0.175],["Meal 3 (Post)",0.18,0.05,0.3],["Snack 2",0.04,0.125,0.05],["Meal 4",0.2,0.175,0.1],["Meal 5",0.2,0.25,0.075]],
+      "MA": [["Meal 1",0.18,0.25,0.1],["Meal 2",0.18,0.2,0.125],["Meal 3",0.2,0.1,0.15],["Snack 1 (Pre)",0.02,0.05,0.175],["Meal 4 (Post)",0.18,0.05,0.3],["Snack 2",0.04,0.125,0.05],["Meal 5",0.2,0.225,0.1]],
+      "E": [["Meal 1",0.18,0.25,0.1],["Meal 2",0.18,0.2,0.125],["Snack 1",0.04,0.125,0.05],["Meal 3",0.2,0.1,0.15],["Snack 2 (Pre)",0.02,0.05,0.175],["Meal 4 (Post)",0.18,0.05,0.3],["Meal 5",0.2,0.225,0.1]],
+      "N": [["Meal 1",0.18,0.25,0.1],["Meal 2",0.18,0.225,0.1],["Snack 1",0.04,0.175,0.05],["Meal 3",0.2,0.15,0.125],["Meal 4",0.2,0.1,0.15],["Snack 2 (Pre)",0.02,0.05,0.175],["Meal 5 (Post)",0.18,0.05,0.3]]
+    },
+    "6M": {
+      "EM": [["Meal 1 (Post)",0.15,0.05,0.3],["Meal 2",0.15,0.1,0.2],["Meal 3",0.15,0.1,0.15],["Meal 4",0.15,0.25,0.1],["Meal 5",0.2,0.3,0.05],["Meal 6",0.2,0.2,0.2]],
+      "M": [["Meal 1 (Pre)",0.05,0.05,0.25],["Meal 2 (Post)",0.15,0.1,0.3],["Meal 3",0.2,0.125,0.15],["Meal 4",0.2,0.15,0.1],["Meal 5",0.2,0.325,0.05],["Meal 6",0.2,0.25,0.15]],
+      "MM": [["Meal 1 (Pre)",0.1,0.1,0.25],["Meal 2 (Post)",0.15,0.05,0.3],["Meal 3",0.175,0.125,0.15],["Meal 4",0.175,0.15,0.15],["Meal 5",0.2,0.25,0.1],["Meal 6",0.2,0.325,0.05]],
+      "A": [["Meal 1",0.2,0.15,0.15],["Meal 2 (Pre)",0.05,0.1,0.25],["Meal 3 (Post)",0.15,0.05,0.3],["Meal 4",0.2,0.125,0.15],["Meal 5",0.2,0.25,0.1],["Meal 6",0.2,0.325,0.05]],
+      "MA": [["Meal 1",0.2,0.3,0.05],["Meal 2",0.2,0.15,0.15],["Meal 3 (Pre)",0.05,0.1,0.25],["Meal 4 (Post)",0.15,0.05,0.3],["Meal 5",0.2,0.125,0.15],["Meal 6",0.2,0.275,0.1]],
+      "E": [["Meal 1",0.2,0.3,0.05],["Meal 2",0.2,0.275,0.1],["Meal 3",0.2,0.15,0.15],["Meal 4 (Pre)",0.05,0.1,0.25],["Meal 5 (Post)",0.15,0.05,0.3],["Meal 6",0.2,0.125,0.15]],
+      "N": [["Meal 1",0.2,0.325,0.05],["Meal 2",0.2,0.25,0.1],["Meal 3",0.2,0.175,0.15],["Meal 4",0.2,0.1,0.15],["Meal 5 (Pre)",0.05,0.1,0.25],["Meal 6 (Post)",0.15,0.05,0.3]]
+    },
+    "6M1S": {
+      "EM": [["Snack 1 (Pre)",0.03,0.03,0.1],["Meal 1 (Post)",0.15,0.05,0.3],["Meal 2",0.15,0.1,0.15],["Meal 3",0.15,0.2,0.1],["Meal 4",0.16,0.2,0.09],["Meal 5",0.17,0.25,0.07],["Meal 6",0.19,0.17,0.19]],
+      "M": [["Snack 1 (Pre)",0.03,0.03,0.15],["Meal 1 (Post)",0.15,0.05,0.3],["Meal 2",0.15,0.1,0.16],["Meal 3",0.15,0.2,0.13],["Meal 4",0.16,0.2,0.09],["Meal 5",0.17,0.25,0.07],["Meal 6",0.19,0.17,0.1]],
+      "MM": [["Meal 1",0.15,0.13,0.13],["Snack 1 (Pre)",0.03,0.03,0.15],["Meal 2 (Post)",0.15,0.05,0.3],["Meal 3",0.15,0.12,0.15],["Meal 4",0.16,0.2,0.1],["Meal 5",0.17,0.22,0.1],["Meal 6",0.19,0.25,0.07]],
+      "A": [["Meal 1",0.17,0.22,0.1],["Meal 2",0.15,0.13,0.13],["Snack 1 (Pre)",0.03,0.03,0.15],["Meal 3 (Post)",0.15,0.05,0.3],["Meal 4",0.16,0.12,0.15],["Meal 5",0.17,0.2,0.1],["Meal 6",0.17,0.25,0.07]],
+      "MA": [["Meal 1",0.17,0.25,0.07],["Meal 2",0.16,0.2,0.1],["Meal 3",0.16,0.15,0.13],["Snack 1 (Pre)",0.03,0.03,0.15],["Meal 4 (Post)",0.15,0.05,0.3],["Meal 5",0.16,0.12,0.15],["Meal 6",0.17,0.2,0.1]],
+      "E": [["Meal 1",0.17,0.26,0.07],["Meal 2",0.16,0.22,0.1],["Meal 3",0.17,0.18,0.1],["Meal 4",0.16,0.14,0.13],["Snack 1 (Pre)",0.03,0.03,0.15],["Meal 5 (Post)",0.15,0.05,0.3],["Meal 6",0.16,0.12,0.15]],
+      "N": [["Meal 1",0.17,0.26,0.07],["Meal 2",0.16,0.22,0.1],["Meal 3",0.17,0.18,0.1],["Meal 4",0.16,0.14,0.13],["Meal 5",0.16,0.12,0.15],["Snack 1 (Pre)",0.03,0.03,0.15],["Meal 6 (Post)",0.15,0.05,0.3]]
+    },
+    "6M2S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.1],["Meal 1 (Post)",0.15,0.05,0.3],["Meal 2",0.16,0.14,0.15],["Meal 3",0.16,0.16,0.1],["Snack 2",0.055,0.08,0.05],["Meal 4",0.15,0.16,0.075],["Meal 5",0.15,0.16,0.075],["Meal 6",0.15,0.2,0.15]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 1 (Post)",0.15,0.05,0.3],["Meal 2",0.16,0.12,0.15],["Meal 3",0.16,0.14,0.1],["Snack 2",0.055,0.1,0.05],["Meal 4",0.15,0.16,0.075],["Meal 5",0.15,0.18,0.075],["Meal 6",0.15,0.2,0.1]],
+      "MM": [["Meal 1",0.16,0.14,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 2 (Post)",0.15,0.05,0.3],["Meal 3",0.16,0.12,0.125],["Snack 2",0.055,0.1,0.1],["Meal 4",0.15,0.16,0.075],["Meal 5",0.15,0.18,0.075],["Meal 6",0.15,0.2,0.05]],
+      "A": [["Meal 1",0.16,0.16,0.075],["Meal 2",0.15,0.12,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 3 (Post)",0.15,0.05,0.3],["Meal 4",0.16,0.12,0.125],["Snack 2",0.055,0.1,0.1],["Meal 5",0.15,0.18,0.075],["Meal 6",0.15,0.22,0.05]],
+      "MA": [["Meal 1",0.16,0.22,0.05],["Meal 2",0.15,0.18,0.075],["Meal 3",0.16,0.12,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 4 (Post)",0.15,0.05,0.3],["Meal 5",0.15,0.12,0.125],["Snack 2",0.055,0.1,0.1],["Meal 6",0.15,0.16,0.075]],
+      "E": [["Meal 1",0.16,0.22,0.05],["Meal 2",0.15,0.18,0.075],["Snack 1",0.055,0.1,0.1],["Meal 3",0.15,0.16,0.075],["Meal 4",0.16,0.12,0.125],["Snack 2 (Pre)",0.025,0.05,0.15],["Meal 5 (Post)",0.15,0.05,0.3],["Meal 6",0.15,0.12,0.125]],
+      "N": [["Meal 1",0.16,0.22,0.05],["Meal 2",0.15,0.18,0.075],["Snack 1",0.055,0.1,0.1],["Meal 3",0.16,0.16,0.075],["Meal 4",0.15,0.14,0.1],["Meal 5",0.15,0.1,0.15],["Snack 2 (Pre)",0.025,0.05,0.15],["Meal 6 (Post)",0.15,0.05,0.3]]
+    },
+    "7M": {
+      "EM": [["Meal 1 (Post)",0.14,0.05,0.3],["Meal 2",0.15,0.05,0.15],["Meal 3",0.15,0.1,0.15],["Meal 4",0.14,0.15,0.1],["Meal 5",0.14,0.225,0.075],["Meal 6",0.14,0.225,0.075],["Meal 7",0.14,0.2,0.15]],
+      "M": [["Meal 1 (Pre)",0.14,0.05,0.2],["Meal 2 (Post)",0.15,0.05,0.3],["Meal 3",0.15,0.1,0.15],["Meal 4",0.14,0.15,0.1],["Meal 5",0.14,0.2,0.1],["Meal 6",0.14,0.225,0.075],["Meal 7",0.14,0.225,0.075]],
+      "MM": [["Meal 1",0.14,0.125,0.1],["Meal 2 (Pre)",0.14,0.05,0.2],["Meal 3 (Post)",0.15,0.05,0.3],["Meal 4",0.15,0.15,0.15],["Meal 5",0.14,0.175,0.1],["Meal 6",0.14,0.225,0.075],["Meal 7",0.14,0.225,0.075]],
+      "A": [["Meal 1",0.14,0.225,0.075],["Meal 2",0.14,0.125,0.1],["Meal 3 (Pre)",0.14,0.05,0.2],["Meal 4 (Post)",0.15,0.05,0.3],["Meal 5",0.15,0.15,0.15],["Meal 6",0.14,0.175,0.1],["Meal 7",0.14,0.225,0.075]],
+      "MA": [["Meal 1",0.14,0.225,0.075],["Meal 2",0.14,0.225,0.075],["Meal 3",0.14,0.125,0.1],["Meal 4 (Pre)",0.14,0.05,0.2],["Meal 5 (Post)",0.15,0.05,0.3],["Meal 6",0.15,0.15,0.15],["Meal 7",0.14,0.175,0.1]],
+      "E": [["Meal 1",0.14,0.225,0.075],["Meal 2",0.14,0.225,0.075],["Meal 3",0.14,0.175,0.1],["Meal 4",0.14,0.125,0.1],["Meal 5 (Pre)",0.14,0.05,0.2],["Meal 6 (Post)",0.15,0.05,0.3],["Meal 7",0.15,0.15,0.15]],
+      "N": [["Meal 1",0.14,0.225,0.075],["Meal 2",0.14,0.225,0.075],["Meal 3",0.14,0.175,0.1],["Meal 4",0.14,0.15,0.1],["Meal 5",0.15,0.125,0.15],["Meal 6 (Pre)",0.14,0.05,0.2],["Meal 7 (Post)",0.15,0.05,0.3]]
+    },
+    "7M1S": {
+      "EM": [["Snack 1 (Pre)",0.025,0.05,0.1],["Meal 1 (Post)",0.125,0.05,0.3],["Meal 2",0.15,0.1,0.15],["Meal 3",0.125,0.12,0.1],["Meal 4",0.15,0.14,0.075],["Meal 5",0.125,0.16,0.075],["Meal 6",0.15,0.18,0.075],["Meal 7",0.15,0.2,0.125]],
+      "M": [["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 1 (Post)",0.125,0.05,0.3],["Meal 2",0.15,0.1,0.15],["Meal 3",0.125,0.12,0.1],["Meal 4",0.15,0.14,0.075],["Meal 5",0.125,0.16,0.075],["Meal 6",0.15,0.18,0.075],["Meal 7",0.15,0.2,0.075]],
+      "MM": [["Meal 1",0.15,0.1,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 2 (Post)",0.125,0.05,0.3],["Meal 3",0.125,0.12,0.125],["Meal 4",0.15,0.14,0.075],["Meal 5",0.125,0.16,0.075],["Meal 6",0.15,0.18,0.075],["Meal 7",0.15,0.2,0.075]],
+      "A": [["Meal 1",0.15,0.15,0.075],["Meal 2",0.15,0.1,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 3 (Post)",0.125,0.05,0.3],["Meal 4",0.125,0.12,0.125],["Meal 5",0.15,0.15,0.075],["Meal 6",0.125,0.18,0.075],["Meal 7",0.15,0.2,0.075]],
+      "MA": [["Meal 1",0.15,0.2,0.075],["Meal 2",0.15,0.15,0.075],["Meal 3",0.15,0.1,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 4 (Post)",0.125,0.05,0.3],["Meal 5",0.125,0.12,0.125],["Meal 6",0.125,0.15,0.075],["Meal 7",0.15,0.18,0.075]],
+      "E": [["Meal 1",0.15,0.2,0.075],["Meal 2",0.15,0.18,0.075],["Meal 3",0.15,0.15,0.075],["Meal 4",0.15,0.12,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 5 (Post)",0.125,0.05,0.3],["Meal 6",0.125,0.12,0.125],["Meal 7",0.125,0.13,0.075]],
+      "N": [["Meal 1",0.15,0.2,0.075],["Meal 2",0.15,0.18,0.075],["Meal 3",0.15,0.15,0.075],["Meal 4",0.15,0.14,0.1],["Meal 5",0.125,0.12,0.125],["Snack 1 (Pre)",0.025,0.05,0.15],["Meal 6 (Post)",0.125,0.05,0.3],["Meal 7",0.125,0.11,0.1]]
+    },
+    "8M": {
+      "EM": [["Meal 1 (Post)",0.125,0.05,0.3],["Meal 2",0.125,0.05,0.15],["Meal 3",0.125,0.1,0.125],["Meal 4",0.125,0.12,0.075],["Meal 5",0.125,0.14,0.075],["Meal 6",0.125,0.16,0.075],["Meal 7",0.125,0.18,0.05],["Meal 8",0.125,0.2,0.15]],
+      "M": [["Meal 1 (Pre)",0.125,0.05,0.15],["Meal 2 (Post)",0.125,0.05,0.3],["Meal 3",0.125,0.1,0.15],["Meal 4",0.125,0.12,0.1],["Meal 5",0.125,0.14,0.075],["Meal 6",0.125,0.16,0.075],["Meal 7",0.125,0.18,0.075],["Meal 8",0.125,0.2,0.075]],
+      "MM": [["Meal 1",0.125,0.1,0.1],["Meal 2 (Pre)",0.125,0.05,0.15],["Meal 3 (Post)",0.125,0.05,0.3],["Meal 4",0.125,0.12,0.125],["Meal 5",0.125,0.14,0.075],["Meal 6",0.125,0.16,0.075],["Meal 7",0.125,0.18,0.1],["Meal 8",0.125,0.2,0.075]],
+      "A": [["Meal 1",0.125,0.14,0.075],["Meal 2",0.125,0.1,0.1],["Meal 3 (Pre)",0.125,0.05,0.15],["Meal 4 (Post)",0.125,0.05,0.3],["Meal 5",0.125,0.12,0.125],["Meal 6",0.125,0.16,0.075],["Meal 7",0.125,0.18,0.1],["Meal 8",0.125,0.2,0.075]],
+      "MA": [["Meal 1",0.125,0.18,0.075],["Meal 2",0.125,0.14,0.075],["Meal 3",0.125,0.1,0.1],["Meal 4 (Pre)",0.125,0.05,0.15],["Meal 5 (Post)",0.125,0.05,0.3],["Meal 6",0.125,0.12,0.125],["Meal 7",0.125,0.16,0.1],["Meal 8",0.125,0.2,0.075]],
+      "E": [["Meal 1",0.125,0.2,0.075],["Meal 2",0.125,0.18,0.075],["Meal 3",0.125,0.14,0.075],["Meal 4",0.125,0.1,0.1],["Meal 5 (Pre)",0.125,0.05,0.15],["Meal 6 (Post)",0.125,0.05,0.3],["Meal 7",0.125,0.12,0.125],["Meal 8",0.125,0.16,0.1]],
+      "N": [["Meal 1",0.125,0.2,0.075],["Meal 2",0.125,0.18,0.075],["Meal 3",0.125,0.16,0.075],["Meal 4",0.125,0.14,0.1],["Meal 5",0.125,0.1,0.1],["Meal 6 (Pre)",0.125,0.05,0.15],["Meal 7 (Post)",0.125,0.05,0.3],["Meal 8",0.125,0.12,0.125]]
+    }
+  };
+
+  const TRAINING_WINDOW_KEYS = {
+    "Early Morning": "EM", "Morning": "M", "Mid Morning": "MM",
+    "Afternoon": "A", "Mid Afternoon": "MA", "Evening": "E", "Night": "N"
+  };
+
+  function getFoodByName(name) {
+    if (!name) return null;
+    const target = String(name).trim().toLowerCase();
+    return (clientData.foodDatabase || []).find(f => String(f.n).trim().toLowerCase() === target) || null;
+  }
+
+  // Food values are per 100g, so scale by quantity/100
+  function macrosForItem(foodName, grams) {
+    const food = getFoodByName(foodName);
+    if (!food) return null;
+    const factor = (Number(grams) || 0) / 100;
+    return {
+      kcal: food.kcal * factor,
+      p: food.p * factor,
+      f: food.f * factor,
+      c: food.c * factor
+    };
+  }
+
+  function renderMealPlanView(content) {
+    const allPlans = (clientData.mealPlans || []).filter(r => {
+      const active = String(r["Active"] || "Y").trim().toUpperCase();
+      return active !== "N";
+    });
+    const allMeta = clientData.mealPlanMeta || [];
+
+    if (!allPlans.length) {
+      content.innerHTML = `<div class="chart-empty">No meal plan set up yet.</div>`;
+      return;
+    }
+
+    const planNames = [];
+    allPlans.forEach(r => {
+      const n = r["Plan Name"] || "Plan";
+      if (!planNames.includes(n)) planNames.push(n);
+    });
+
+    let html = "";
+    if (planNames.length > 1) {
+      html += `<select id="mealPlanSelect">` +
+        planNames.map(n => `<option value="${n}">${n}</option>`).join("") +
+        `</select>`;
+    }
+    html += `<div id="mealPlanContent"></div>`;
+    content.innerHTML = html;
+
+    const renderPlan = (planName) => {
+      const panel = document.getElementById("mealPlanContent");
+      const rows = allPlans.filter(r => (r["Plan Name"] || "Plan") === planName);
+      const meta = allMeta.find(m => (m["Plan Name"] || "") === planName) || {};
+
+      // Prescribed targets: the plan's own values, falling back to the
+      // client's macrocycle targets for the current week.
+      const weekTargets = getTargetsForDate(new Date().toISOString().split("T")[0]);
+      const prescribed = {
+        kcal: Number(meta["Calorie Target"]) || Number(weekTargets.calories) || 0,
+        p: Number(meta["Protein Target"]) || Number(weekTargets.protein) || 0,
+        f: Number(meta["Fat Target"]) || Number(weekTargets.fat) || 0,
+        c: Number(meta["Carb Target"]) || Number(weekTargets.carb) || 0
+      };
+
+      // Group foods by meal, preserving Meal Order
+      const mealMap = {};
+      const mealOrder = [];
+      rows.forEach(r => {
+        const meal = r["Meal"] || "Unassigned";
+        if (!mealMap[meal]) {
+          mealMap[meal] = { order: Number(r["Meal Order"]) || 999, items: [] };
+          mealOrder.push(meal);
+        }
+        mealMap[meal].items.push(r);
+      });
+      mealOrder.sort((a, b) => mealMap[a].order - mealMap[b].order);
+
+      // Distribution targets for this configuration and training window
+      const config = meta["Meal Config"];
+      const windowKey = TRAINING_WINDOW_KEYS[meta["Training Window"]];
+      const distribution = (config && windowKey && MEAL_DISTRIBUTION[config])
+        ? MEAL_DISTRIBUTION[config][windowKey] : null;
+
+      const distByMeal = {};
+      if (distribution) {
+        distribution.forEach(([label, p, f, c]) => { distByMeal[label] = { p, f, c }; });
+      }
+
+      // Totals and per-meal figures
+      const actual = { kcal: 0, p: 0, f: 0, c: 0 };
+      const missingFoods = [];
+      const mealBlocks = [];
+
+      mealOrder.forEach(meal => {
+        const mealActual = { kcal: 0, p: 0, f: 0, c: 0 };
+        const itemsHtml = mealMap[meal].items.map(r => {
+          const grams = Number(r["Quantity (g)"]) || 0;
+          const m = macrosForItem(r["Food Name"], grams);
+          if (!m) {
+            missingFoods.push(r["Food Name"]);
+            return `<div class="meal-item missing">
+                <div class="mi-name">${r["Food Name"] || "—"}<span class="mi-warn">not found in food database</span></div>
+                <div class="mi-qty">${grams}g</div>
+              </div>`;
+          }
+          mealActual.kcal += m.kcal; mealActual.p += m.p;
+          mealActual.f += m.f; mealActual.c += m.c;
+          return `<div class="meal-item">
+              <div class="mi-name">${r["Food Name"]}${r["Notes"] ? `<span class="mi-note">${r["Notes"]}</span>` : ""}</div>
+              <div class="mi-qty">${grams}g</div>
+              <div class="mi-macros">${Math.round(m.kcal)} kcal · P${Math.round(m.p)} F${Math.round(m.f)} C${Math.round(m.c)}</div>
+            </div>`;
+        }).join("");
+
+        actual.kcal += mealActual.kcal; actual.p += mealActual.p;
+        actual.f += mealActual.f; actual.c += mealActual.c;
+
+        // Per-meal prescribed figures come from the distribution percentages
+        const d = distByMeal[meal];
+        let mealPrescribed = null;
+        if (d) {
+          mealPrescribed = {
+            p: prescribed.p * d.p,
+            f: prescribed.f * d.f,
+            c: prescribed.c * d.c
+          };
+          mealPrescribed.kcal = mealPrescribed.p * 4 + mealPrescribed.f * 9 + mealPrescribed.c * 4;
+        }
+
+        mealBlocks.push(`
+          <div class="meal-block">
+            <div class="meal-head">
+              <div class="meal-name">${meal}</div>
+              <div class="meal-kcal">${Math.round(mealActual.kcal)} kcal</div>
+            </div>
+            <div class="meal-items">${itemsHtml}</div>
+            ${mealPrescribed ? `
+              <div class="meal-compare">
+                ${compareRow("P", mealActual.p, mealPrescribed.p)}
+                ${compareRow("F", mealActual.f, mealPrescribed.f)}
+                ${compareRow("C", mealActual.c, mealPrescribed.c)}
+              </div>` : ""}
+          </div>`);
+      });
+
+      const hasPrescribed = prescribed.kcal || prescribed.p || prescribed.f || prescribed.c;
+
+      panel.innerHTML = `
+        ${meta["Description"] ? `<p class="meal-desc">${meta["Description"]}</p>` : ""}
+        ${config && meta["Training Window"] ? `<p class="meal-config">${config} · training ${meta["Training Window"]}</p>` : ""}
+
+        ${hasPrescribed ? `
+        <div class="chart-card">
+          <h3>Daily totals</h3>
+          <div class="day-totals">
+            ${totalCol("Calories", actual.kcal, prescribed.kcal, "")}
+            ${totalCol("Protein", actual.p, prescribed.p, "g")}
+            ${totalCol("Fat", actual.f, prescribed.f, "g")}
+            ${totalCol("Carbs", actual.c, prescribed.c, "g")}
+          </div>
+        </div>` : `
+        <div class="chart-card">
+          <h3>Daily totals</h3>
+          <div class="day-totals">
+            ${totalCol("Calories", actual.kcal, null, "")}
+            ${totalCol("Protein", actual.p, null, "g")}
+            ${totalCol("Fat", actual.f, null, "g")}
+            ${totalCol("Carbs", actual.c, null, "g")}
+          </div>
+        </div>`}
+
+        ${missingFoods.length ? `<div class="meal-warning">
+          ${missingFoods.length} item${missingFoods.length === 1 ? "" : "s"} couldn't be matched to the food database and aren't counted in the totals.
+        </div>` : ""}
+
+        ${mealBlocks.join("")}
+      `;
+    };
+
+    renderPlan(planNames[0]);
+    const sel = document.getElementById("mealPlanSelect");
+    if (sel) sel.onchange = () => renderPlan(sel.value);
+  }
+
+  // A single macro column in the daily totals, showing actual against prescribed
+  function totalCol(label, actual, prescribed, unit) {
+    const a = Math.round(actual);
+    if (prescribed === null || !prescribed) {
+      return `<div class="dt-col">
+          <div class="dt-label">${label}</div>
+          <div class="dt-actual">${a}${unit}</div>
+        </div>`;
+    }
+    const pr = Math.round(prescribed);
+    const diff = a - pr;
+    const pct = pr ? Math.abs(diff) / pr : 0;
+    // Within 5% reads as on target; beyond 15% is worth flagging
+    const cls = pct <= 0.05 ? "on" : (pct <= 0.15 ? "near" : "off");
+    return `<div class="dt-col">
+        <div class="dt-label">${label}</div>
+        <div class="dt-actual ${cls}">${a}${unit}</div>
+        <div class="dt-target">of ${pr}${unit}</div>
+        <div class="dt-diff ${cls}">${diff >= 0 ? "+" : ""}${diff}${unit}</div>
+      </div>`;
+  }
+
+  function compareRow(letter, actual, prescribed) {
+    const a = Math.round(actual);
+    const pr = Math.round(prescribed);
+    const diff = a - pr;
+    const pct = pr ? Math.abs(diff) / pr : 0;
+    const cls = pct <= 0.05 ? "on" : (pct <= 0.15 ? "near" : "off");
+    return `<span class="mc-item">
+        <b>${letter}</b> ${a}<span class="mc-target">/${pr}</span>
+        <span class="mc-diff ${cls}">${diff >= 0 ? "+" : ""}${diff}</span>
+      </span>`;
+  }
+
   function renderCustomLegend(canvasId, items) {
     const container = document.getElementById(canvasId + "Legend");
     if (!container) return; // not every chart has one (e.g. single-line charts elsewhere)
@@ -3535,7 +3969,7 @@
   const CHECKIN_CATEGORY_TITLES = {
     nutrition: "Nutrition", measurements: "Measurements", expenditure: "Expenditure",
     sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion",
-    bloods: "Blood Markers", vitals: "Vitals"
+    bloods: "Blood Markers", vitals: "Vitals", meals: "Meal Plan"
   };
 
   function showCheckinDetail(category) {
@@ -3551,6 +3985,12 @@
     if (category === "bloods") {
       document.querySelector("#checkinDetail .block-sub").textContent = "Results by test date";
       renderBloodsView(content);
+      return;
+    }
+    // Meal plans draw from Meal_Plans/Meal_Plan_Meta plus the food database
+    if (category === "meals") {
+      document.querySelector("#checkinDetail .block-sub").textContent = "Prescribed vs actual";
+      renderMealPlanView(content);
       return;
     }
     document.querySelector("#checkinDetail .block-sub").textContent = "Trend over every logged week";
