@@ -110,7 +110,7 @@
   .profile-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; justify-content: space-between; }
   .profile-row > div:nth-child(3) { flex-shrink: 0; }
 
-  .animal-widget { text-align: center; flex-shrink: 0; margin-left: auto; }
+  .animal-widget { text-align: center; flex-shrink: 0; }
   .animal-display { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 6px; }
   .animal-icon { font-size: 24px; line-height: 1; }
   .animal-count { font-size: 18px; font-weight: 700; color: var(--accent); }
@@ -247,6 +247,45 @@
     padding: 10px 12px; border-radius: 6px; margin-top: 4px;
   }
 
+
+
+  .profile-actions {
+    display: flex; align-items: center; gap: 10px;
+    margin-left: auto; flex-shrink: 0;
+  }
+  .meal-quick-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: var(--card); border: 1px solid var(--accent-dim);
+    border-radius: 12px; padding: 9px 11px; cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.1s ease;
+  }
+  .meal-quick-btn:hover { border-color: var(--accent); background: var(--card); }
+  .meal-quick-btn:active { transform: scale(0.96); }
+  .mqb-icon { font-size: 20px; line-height: 1; }
+  .mqb-label {
+    font-size: 9px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+  }
+
+
+  .calc-chain {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 11.5px; color: var(--muted); margin-bottom: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .calc-chain b { color: var(--accent); font-size: 13px; }
+  .cc-arrow { opacity: 0.5; }
+  .calc-warn {
+    background: rgba(182,64,44,0.14); color: #e8927a;
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+    font-size: 11.5px; line-height: 1.5;
+  }
+  .calc-note {
+    background: var(--card2); color: var(--muted);
+    border-left: 2px solid var(--accent-dim);
+    border-radius: 6px; padding: 9px 12px; margin-bottom: 12px;
+    font-size: 11.5px; line-height: 1.45;
+  }
 
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
@@ -838,24 +877,120 @@
       <div class="profile-sub" id="profileSub">Tap your photo to update it</div>
     </div>
 
-    <div class="animal-widget" id="animalWidget">
-      <div class="animal-display">
-        <span class="animal-icon" id="animalIcon">🐘</span>
-        <span class="animal-count" id="animalCount">—</span>
+    <div class="profile-actions">
+      <button class="meal-quick-btn" id="calcQuickBtn" style="display:none;">
+        <span class="mqb-icon">🧮</span>
+        <span class="mqb-label">Calculator</span>
+      </button>
+      <button class="meal-quick-btn" id="mealQuickBtn" style="display:none;">
+        <span class="mqb-icon">🍽️</span>
+        <span class="mqb-label">Meal Plan</span>
+      </button>
+
+      <div class="animal-widget" id="animalWidget">
+        <div class="animal-display">
+          <span class="animal-icon" id="animalIcon">🐘</span>
+          <span class="animal-count" id="animalCount">—</span>
+        </div>
+        <select id="animalSelect" class="animal-select">
+          <option value="6000" data-icon="🐘">Elephants</option>
+          <option value="2300" data-icon="🦏">Rhinos</option>
+          <option value="1500" data-icon="🦛">Hippos</option>
+          <option value="800" data-icon="🦒">Giraffes</option>
+          <option value="700" data-icon="🐄">Cows</option>
+          <option value="500" data-icon="🐴">Horses</option>
+          <option value="450" data-icon="🐻‍❄️">Polar Bears</option>
+          <option value="190" data-icon="🦁">Lions</option>
+          <option value="160" data-icon="🦍">Gorillas</option>
+          <option value="55" data-icon="🦘">Kangaroos</option>
+        </select>
       </div>
-      <select id="animalSelect" class="animal-select">
-        <option value="6000" data-icon="🐘">Elephants</option>
-        <option value="2300" data-icon="🦏">Rhinos</option>
-        <option value="1500" data-icon="🦛">Hippos</option>
-        <option value="800" data-icon="🦒">Giraffes</option>
-        <option value="700" data-icon="🐄">Cows</option>
-        <option value="500" data-icon="🐴">Horses</option>
-        <option value="450" data-icon="🐻‍❄️">Polar Bears</option>
-        <option value="190" data-icon="🦁">Lions</option>
-        <option value="160" data-icon="🦍">Gorillas</option>
-        <option value="55" data-icon="🦘">Kangaroos</option>
-      </select>
     </div>
+  </div>
+
+  <div id="calcPanel" style="display:none;">
+    <div class="topbar" style="padding-top:0;">
+      <h2 class="block-title" style="margin:0;">Calculator</h2>
+      <button class="logout" id="calcCloseBtn">← Back</button>
+    </div>
+    <p class="block-sub">Starting point for prescribed targets</p>
+
+    <div class="chart-card">
+      <h3>Client details</h3>
+      <div class="form-field">
+        <label>Units</label>
+        <select id="calcUnits">
+          <option value="Metric">Metric (kg / cm)</option>
+          <option value="Imperial">Imperial (lb / in)</option>
+        </select>
+      </div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Sex</label>
+          <select id="calcSex"><option>Male</option><option>Female</option></select>
+        </div>
+        <div class="form-field"><label>Age</label><input type="number" id="calcAge"></div>
+      </div>
+      <div class="form-grid">
+        <div class="form-field"><label id="calcWeightLabel">Weight (kg)</label><input type="number" step="0.1" id="calcWeight"></div>
+        <div class="form-field"><label id="calcHeightLabel">Height (cm)</label><input type="number" step="0.1" id="calcHeight"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Method</h3>
+      <div class="form-field">
+        <label>BMR equation</label>
+        <select id="calcBmrMethod">
+          <option>Harris Benedict (Revised)</option>
+          <option>Katch-Mcardle (Estimated BF)</option>
+          <option>Katch-Mcardle (Actual BF)</option>
+        </select>
+      </div>
+      <div class="form-field" id="calcBfWrap" style="display:none;">
+        <label>Body fat %</label>
+        <input type="number" step="0.1" id="calcBodyFat">
+      </div>
+      <div class="form-field">
+        <label>Activity level</label>
+        <select id="calcActivity"></select>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Targets</h3>
+      <div class="form-field">
+        <label>Diet phase</label>
+        <select id="calcDietPhase"></select>
+      </div>
+      <div class="form-field">
+        <label>Macro split</label>
+        <select id="calcMacroSplit"></select>
+      </div>
+      <div class="form-field">
+        <label>Carb loading</label>
+        <select id="calcCarbLoad"></select>
+      </div>
+    </div>
+
+    <div id="calcWarnings"></div>
+
+    <div class="chart-card" id="calcResultCard" style="display:none;">
+      <h3>Result</h3>
+      <div class="calc-chain" id="calcChain"></div>
+      <div class="day-totals" id="calcMacros"></div>
+      <button class="full" id="calcCopyBtn" style="margin-top:14px;">Copy to Meal Plan</button>
+      <div class="checkin-form-msg" id="calcCopyMsg"></div>
+    </div>
+  </div>
+
+  <div id="mealPlanPanel" style="display:none;">
+    <div class="topbar" style="padding-top:0;">
+      <h2 class="block-title" style="margin:0;">Meal Plan</h2>
+      <button class="logout" id="mealPlanCloseBtn">← Back</button>
+    </div>
+    <p class="block-sub">Prescribed vs actual</p>
+    <div id="mealPlanPanelContent"></div>
   </div>
 
   <div class="scorecard" id="scorecard">
@@ -1075,10 +1210,6 @@
         <div class="checkin-tile" data-category="vitals">
           <div class="checkin-tile-icon">❤️</div>
           <div class="checkin-tile-name">Vitals</div>
-        </div>
-        <div class="checkin-tile" data-category="meals">
-          <div class="checkin-tile-icon">🍽️</div>
-          <div class="checkin-tile-name">Meal Plan</div>
         </div>
       </div>
     </div>
@@ -1481,6 +1612,15 @@
 
   document.querySelectorAll(".tab").forEach(tab => {
     tab.addEventListener("click", () => {
+      // Tapping a tab exits the meal plan view if it's open
+      const mealPanel = document.getElementById("mealPlanPanel");
+      const calcPanel = document.getElementById("calcPanel");
+      if ((mealPanel && mealPanel.style.display === "block") ||
+          (calcPanel && calcPanel.style.display === "block")) {
+        if (mealPanel) mealPanel.style.display = "none";
+        if (calcPanel) calcPanel.style.display = "none";
+        setDashboardSectionsVisible(true);
+      }
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
       tab.classList.add("active");
@@ -1841,6 +1981,51 @@
   // Nutrition Only clients get just the Check-Ins section — no training
   // tabs, no training-based scorecard/animal widget, since none of that
   // data will ever exist for them.
+  // ---------- Meal plan quick access ----------
+  // Sits next to the animal widget rather than nested inside Check-Ins,
+  // so clients reach their plan in one tap.
+  function setupMealPlanButton() {
+    const btn = document.getElementById("mealQuickBtn");
+    const panel = document.getElementById("mealPlanPanel");
+    const closeBtn = document.getElementById("mealPlanCloseBtn");
+
+    const hasPlan = (clientData.mealPlans || []).some(r => {
+      const active = String(r["Active"] || "Y").trim().toUpperCase();
+      return active !== "N";
+    });
+
+    btn.style.display = hasPlan ? "flex" : "none";
+    if (!hasPlan) { panel.style.display = "none"; return; }
+
+    btn.onclick = () => {
+      renderMealPlanView(document.getElementById("mealPlanPanelContent"));
+      setDashboardSectionsVisible(false);
+      const calcPanel = document.getElementById("calcPanel");
+      if (calcPanel) calcPanel.style.display = "none";
+      panel.style.display = "block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    closeBtn.onclick = () => {
+      panel.style.display = "none";
+      setDashboardSectionsVisible(true);
+    };
+  }
+
+  // The meal plan takes over the main area, so the tabs and their panels
+  // hide while it's open rather than sitting awkwardly beneath it.
+  function setDashboardSectionsVisible(visible) {
+    const tabs = document.querySelector(".tabs");
+    if (tabs) tabs.style.display = visible ? "" : "none";
+    document.querySelectorAll(".tab-panel").forEach(p => {
+      p.style.display = visible ? "" : "none";
+    });
+    const scorecard = document.getElementById("scorecard");
+    if (scorecard && clientData.clientType !== "Nutrition Only") {
+      scorecard.style.display = visible ? "" : "none";
+    }
+  }
+
   function configureUiForClientType() {
     const isNutritionOnly = clientData.clientType === "Nutrition Only";
     // Planner stays available to Nutrition Only clients — nutrition phases,
@@ -1927,6 +2112,8 @@
     renderCheckinsTab();
     renderPlannerTab();
     renderCurrentPlanBanner();
+    setupMealPlanButton();
+    setupCalculator();
     renderSpeciality();
   }
 
@@ -3192,6 +3379,318 @@
   }
 
 
+
+  // ---------- Macro / calorie calculator (coach only) ----------
+  // Mirrors the spreadsheet calculator. Output is a starting point that the
+  // coach chooses to copy into a plan, never written automatically.
+
+  const CALC_ACTIVITY = {
+    "Sedentary: little or no daily exercise": 1.2,
+    "Lightly Active: light activity, exercise 1-3 days/week": 1.375,
+    "Moderately Active: moderate activity, exercise 3-5 days/week": 1.55,
+    "Very Active: physically demanding, exercise 6-7 days/week": 1.725,
+    "Extremely Active: intense daily exercise, very physical job": 1.9
+  };
+
+  // Surpluses add a flat amount; deficits subtract a percentage of TDEE
+  const CALC_DIET_PHASES = {
+    "Extreme Surplus":     ["add", 500],
+    "Substantial Surplus": ["add", 400],
+    "Significant Surplus": ["add", 300],
+    "Moderate Surplus":    ["add", 200],
+    "Slight Surplus":      ["add", 100],
+    "Maintenance":         ["add", 0],
+    "Slight Deficit":      ["pct", 0.05],
+    "Moderate Deficit":    ["pct", 0.10],
+    "Significant Deficit": ["pct", 0.15],
+    "Substantial Deficit": ["pct", 0.20],
+    "Extreme Deficit":     ["pct", 0.25]
+  };
+
+  // 49 splits: protein 25-40%, fats 15-30%, both in 2.5% steps, carbs the remainder
+  function buildMacroSplits() {
+    const splits = {};
+    const proteins = [25, 27.5, 30, 32.5, 35, 37.5, 40];
+    const fats = [15, 17.5, 20, 22.5, 25, 27.5, 30];
+    proteins.forEach((p, i) => {
+      fats.forEach((f, j) => {
+        const key = (i + 1) + String.fromCharCode(97 + j);
+        splits[key] = { p: p / 100, f: f / 100, c: (100 - p - f) / 100, label: `P${p}% F${f}% C${(100-p-f)}%` };
+      });
+    });
+    return splits;
+  }
+  const CALC_MACRO_SPLITS = buildMacroSplits();
+
+  const LB_PER_KG = 2.20462;
+  const CM_PER_INCH = 2.54;
+
+  function boerLbm(sex, kg, cm) {
+    return sex === "Male" ? (0.407 * kg + 0.267 * cm) : (0.252 * kg + 0.473 * cm - 48.3);
+  }
+
+  function calcBmr(method, sex, kg, cm, age, bodyFatPct) {
+    const warnings = [];
+    let bmr;
+
+    if (method === "Harris Benedict (Revised)") {
+      bmr = sex === "Male"
+        ? 66.5 + 13.75 * kg + 5.003 * cm - 6.75 * age
+        : 655.1 + 9.563 * kg + 1.850 * cm - 4.676 * age;
+
+    } else if (method === "Katch-Mcardle (Actual BF)") {
+      if (!bodyFatPct) {
+        warnings.push("Enter a body fat percentage to use this method.");
+        return { bmr: null, warnings };
+      }
+      bmr = 370 + 21.6 * ((1 - bodyFatPct / 100) * kg);
+
+    } else {
+      // Boer estimates lean mass, which feeds Katch-McArdle directly.
+      // It overestimates for lean or tall males, so flag implausible results.
+      const lbm = boerLbm(sex, kg, cm);
+      if (lbm >= kg) {
+        warnings.push(`Estimated lean mass (${lbm.toFixed(1)}kg) is at or above bodyweight (${kg.toFixed(1)}kg), which isn't possible. The Boer estimate is unreliable for lean or tall builds — an actual body fat measurement would be more accurate.`);
+      } else {
+        const impliedBf = (1 - lbm / kg) * 100;
+        if (impliedBf < 5) {
+          warnings.push(`Estimated body fat of ${impliedBf.toFixed(1)}% is very low and may be unreliable. Consider using an actual measurement.`);
+        }
+      }
+      bmr = 370 + 21.6 * lbm;
+    }
+    return { bmr, warnings };
+  }
+
+  let lastCalcResult = null;
+
+  function runCalculator() {
+    const units = document.getElementById("calcUnits").value;
+    const sex = document.getElementById("calcSex").value;
+    const age = Number(document.getElementById("calcAge").value);
+    let weight = Number(document.getElementById("calcWeight").value);
+    let height = Number(document.getElementById("calcHeight").value);
+    const method = document.getElementById("calcBmrMethod").value;
+    const bodyFat = Number(document.getElementById("calcBodyFat").value);
+    const activity = document.getElementById("calcActivity").value;
+    const phase = document.getElementById("calcDietPhase").value;
+    const splitKey = document.getElementById("calcMacroSplit").value;
+    const carbLoad = document.getElementById("calcCarbLoad").value;
+
+    const resultCard = document.getElementById("calcResultCard");
+    const warnBox = document.getElementById("calcWarnings");
+
+    if (!weight || !height || !age) {
+      resultCard.style.display = "none";
+      warnBox.innerHTML = "";
+      lastCalcResult = null;
+      return;
+    }
+
+    if (units === "Imperial") {
+      weight = weight / LB_PER_KG;
+      height = height * CM_PER_INCH;
+    }
+
+    const { bmr, warnings } = calcBmr(method, sex, weight, height, age, bodyFat);
+    if (bmr === null) {
+      resultCard.style.display = "none";
+      warnBox.innerHTML = warnings.map(w => `<div class="calc-warn">${w}</div>`).join("");
+      lastCalcResult = null;
+      return;
+    }
+
+    const tdee = bmr * CALC_ACTIVITY[activity];
+    const [kind, val] = CALC_DIET_PHASES[phase];
+    const targetKcal = kind === "add" ? tdee + val : tdee * (1 - val);
+
+    const split = CALC_MACRO_SPLITS[splitKey];
+    let protein = targetKcal * split.p / 4;
+    let fats = targetKcal * split.f / 9;
+    let carbs = targetKcal * split.c / 4;
+
+    // Carb loading overrides carbs entirely; protein and fats hold
+    let loadNote = "";
+    if (carbLoad !== "None") {
+      const gPerKg = Number(carbLoad.split("g")[0]);
+      const loadedCarbs = gPerKg * weight;
+      if (loadedCarbs < carbs) {
+        loadNote = `Carb load sets ${Math.round(loadedCarbs)}g, which is below the split's ${Math.round(carbs)}g.`;
+      }
+      carbs = loadedCarbs;
+    }
+
+    const finalKcal = protein * 4 + fats * 9 + carbs * 4;
+
+    lastCalcResult = {
+      kcal: Math.round(finalKcal),
+      protein: Math.round(protein),
+      fats: Math.round(fats),
+      carbs: Math.round(carbs)
+    };
+
+    warnBox.innerHTML = warnings.map(w => `<div class="calc-warn">${w}</div>`).join("") +
+      (loadNote ? `<div class="calc-note">${loadNote}</div>` : "");
+
+    document.getElementById("calcChain").innerHTML = `
+      <span>BMR <b>${Math.round(bmr)}</b></span>
+      <span class="cc-arrow">→</span>
+      <span>TDEE <b>${Math.round(tdee)}</b></span>
+      <span class="cc-arrow">→</span>
+      <span>${phase} <b>${Math.round(targetKcal)}</b></span>
+    `;
+
+    document.getElementById("calcMacros").innerHTML = `
+      <div class="dt-col"><div class="dt-label">Calories</div><div class="dt-actual">${lastCalcResult.kcal}</div></div>
+      <div class="dt-col"><div class="dt-label">Protein</div><div class="dt-actual">${lastCalcResult.protein}g</div></div>
+      <div class="dt-col"><div class="dt-label">Fat</div><div class="dt-actual">${lastCalcResult.fats}g</div></div>
+      <div class="dt-col"><div class="dt-label">Carbs</div><div class="dt-actual">${lastCalcResult.carbs}g</div></div>
+    `;
+
+    resultCard.style.display = "block";
+    document.getElementById("calcCopyMsg").textContent = "";
+  }
+
+  function setupCalculator() {
+    const btn = document.getElementById("calcQuickBtn");
+    // Coach-only: the calculator is a planning tool, not client-facing
+    btn.style.display = isAdminView ? "flex" : "none";
+    if (!isAdminView) {
+      document.getElementById("calcPanel").style.display = "none";
+      return;
+    }
+
+    // Populate the selectors once
+    const activitySel = document.getElementById("calcActivity");
+    if (!activitySel.options.length) {
+      activitySel.innerHTML = Object.keys(CALC_ACTIVITY)
+        .map((k, i) => `<option${i === 2 ? " selected" : ""}>${k}</option>`).join("");
+
+      document.getElementById("calcDietPhase").innerHTML = Object.keys(CALC_DIET_PHASES)
+        .map(k => `<option${k === "Maintenance" ? " selected" : ""}>${k}</option>`).join("");
+
+      document.getElementById("calcMacroSplit").innerHTML = Object.keys(CALC_MACRO_SPLITS)
+        .map(k => `<option value="${k}"${k === "3c" ? " selected" : ""}>${k}. ${CALC_MACRO_SPLITS[k].label}</option>`).join("");
+
+      document.getElementById("calcCarbLoad").innerHTML =
+        ["None", "3g/kg bw", "4g/kg bw", "5g/kg bw", "6g/kg bw",
+         "7g/kg bw", "8g/kg bw", "9g/kg bw", "10g/kg bw"]
+        .map(k => `<option>${k}</option>`).join("");
+
+      // Recalculate on any change
+      ["calcUnits","calcSex","calcAge","calcWeight","calcHeight","calcBmrMethod",
+       "calcBodyFat","calcActivity","calcDietPhase","calcMacroSplit","calcCarbLoad"]
+        .forEach(id => {
+          const el = document.getElementById(id);
+          el.addEventListener("input", runCalculator);
+          el.addEventListener("change", runCalculator);
+        });
+
+      document.getElementById("calcUnits").addEventListener("change", () => {
+        const imperial = document.getElementById("calcUnits").value === "Imperial";
+        document.getElementById("calcWeightLabel").textContent = imperial ? "Weight (lb)" : "Weight (kg)";
+        document.getElementById("calcHeightLabel").textContent = imperial ? "Height (in)" : "Height (cm)";
+      });
+
+      document.getElementById("calcBmrMethod").addEventListener("change", () => {
+        const needsBf = document.getElementById("calcBmrMethod").value === "Katch-Mcardle (Actual BF)";
+        document.getElementById("calcBfWrap").style.display = needsBf ? "block" : "none";
+      });
+
+      document.getElementById("calcCopyBtn").onclick = copyCalcToPlan;
+    }
+
+    // Prefill from the client's most recent logged weight, saving retyping
+    const checkins = (clientData.dailyCheckins || [])
+      .filter(r => r["Weight"] && parseDate(r["Date"]))
+      .sort((a, b) => toDate(b) - toDate(a));
+    if (checkins.length && !document.getElementById("calcWeight").value) {
+      document.getElementById("calcWeight").value = roundTo(Number(checkins[0]["Weight"]), 1);
+    }
+    if (clientData.sex && !document.getElementById("calcSex").dataset.touched) {
+      document.getElementById("calcSex").value = clientData.sex;
+    }
+    const age = calculateAge(clientData.dob);
+    if (age && !document.getElementById("calcAge").value) {
+      document.getElementById("calcAge").value = age;
+    }
+
+    btn.onclick = () => {
+      setDashboardSectionsVisible(false);
+      document.getElementById("mealPlanPanel").style.display = "none";
+      document.getElementById("calcPanel").style.display = "block";
+      runCalculator();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    document.getElementById("calcCloseBtn").onclick = () => {
+      document.getElementById("calcPanel").style.display = "none";
+      setDashboardSectionsVisible(true);
+    };
+  }
+
+  async function copyCalcToPlan() {
+    const msg = document.getElementById("calcCopyMsg");
+    function show(text, isError) {
+      msg.textContent = text;
+      msg.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    if (!lastCalcResult) { show("Nothing to copy yet.", true); return; }
+
+    const plans = (clientData.mealPlanMeta || []).map(m => m["Plan Name"]).filter(Boolean);
+    if (!plans.length) {
+      show("This client has no meal plan yet — add one in Meal_Plan_Meta first.", true);
+      return;
+    }
+
+    let planName = plans[0];
+    if (plans.length > 1) {
+      const choice = prompt(`Copy to which plan?\n\n${plans.join("\n")}`, plans[0]);
+      if (!choice) return;
+      if (!plans.includes(choice)) { show(`No plan named "${choice}".`, true); return; }
+      planName = choice;
+    }
+
+    const btn = document.getElementById("calcCopyBtn");
+    btn.disabled = true;
+    btn.textContent = "Copying...";
+    showLoading("Updating plan targets...");
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "saveMealPlanTargets",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          planName: planName,
+          calories: lastCalcResult.kcal,
+          protein: lastCalcResult.protein,
+          fats: lastCalcResult.fats,
+          carbs: lastCalcResult.carbs
+        })
+      });
+      const data = await res.json();
+      if (data.error) { show(data.error, true); }
+      else {
+        show(`Copied to "${planName}".`, false);
+        const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+        const refreshed = await (await fetch(url)).json();
+        if (!refreshed.error) clientData = refreshed;
+      }
+    } catch (err) {
+      show("Couldn't save — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Copy to Meal Plan";
+      hideLoading();
+    }
+  }
+
   // ---------- Meal Plan ----------
   // Distribution table: 15 meal configurations x 7 training windows.
   // Each entry is [meal label, protein %, fat %, carb %] and every set
@@ -3521,6 +4020,21 @@
   }
 
   // A single macro column in the daily totals, showing actual against prescribed
+  // Tolerances are absolute rather than percentage-based — in practice
+  // "within 50 calories" or "within a few grams" is what matters, and a
+  // percentage would be unfairly strict on small meals and too loose on
+  // large ones.
+  const DAY_KCAL_TOLERANCE = 50;
+  const DAY_MACRO_TOLERANCE = 10;   // grams, whole-day
+  const MEAL_MACRO_TOLERANCE = 4;   // grams, per meal
+
+  function toleranceClass(diff, tolerance) {
+    const d = Math.abs(diff);
+    if (d <= tolerance) return "on";
+    if (d <= tolerance * 2.5) return "near";
+    return "off";
+  }
+
   function totalCol(label, actual, prescribed, unit) {
     const a = Math.round(actual);
     if (prescribed === null || !prescribed) {
@@ -3531,9 +4045,8 @@
     }
     const pr = Math.round(prescribed);
     const diff = a - pr;
-    const pct = pr ? Math.abs(diff) / pr : 0;
-    // Within 5% reads as on target; beyond 15% is worth flagging
-    const cls = pct <= 0.05 ? "on" : (pct <= 0.15 ? "near" : "off");
+    const tolerance = (label === "Calories") ? DAY_KCAL_TOLERANCE : DAY_MACRO_TOLERANCE;
+    const cls = toleranceClass(diff, tolerance);
     return `<div class="dt-col">
         <div class="dt-label">${label}</div>
         <div class="dt-actual ${cls}">${a}${unit}</div>
@@ -3546,8 +4059,7 @@
     const a = Math.round(actual);
     const pr = Math.round(prescribed);
     const diff = a - pr;
-    const pct = pr ? Math.abs(diff) / pr : 0;
-    const cls = pct <= 0.05 ? "on" : (pct <= 0.15 ? "near" : "off");
+    const cls = toleranceClass(diff, MEAL_MACRO_TOLERANCE);
     return `<span class="mc-item">
         <b>${letter}</b> ${a}<span class="mc-target">/${pr}</span>
         <span class="mc-diff ${cls}">${diff >= 0 ? "+" : ""}${diff}</span>
@@ -3969,7 +4481,7 @@
   const CHECKIN_CATEGORY_TITLES = {
     nutrition: "Nutrition", measurements: "Measurements", expenditure: "Expenditure",
     sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion",
-    bloods: "Blood Markers", vitals: "Vitals", meals: "Meal Plan"
+    bloods: "Blood Markers", vitals: "Vitals"
   };
 
   function showCheckinDetail(category) {
@@ -3985,12 +4497,6 @@
     if (category === "bloods") {
       document.querySelector("#checkinDetail .block-sub").textContent = "Results by test date";
       renderBloodsView(content);
-      return;
-    }
-    // Meal plans draw from Meal_Plans/Meal_Plan_Meta plus the food database
-    if (category === "meals") {
-      document.querySelector("#checkinDetail .block-sub").textContent = "Prescribed vs actual";
-      renderMealPlanView(content);
       return;
     }
     document.querySelector("#checkinDetail .block-sub").textContent = "Trend over every logged week";
