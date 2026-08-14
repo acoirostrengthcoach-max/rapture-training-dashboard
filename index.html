@@ -261,7 +261,7 @@
   }
   .meal-quick-btn:hover { border-color: var(--accent); background: var(--card); }
   .meal-quick-btn:active { transform: scale(0.96); }
-  .mqb-icon { font-size: 20px; line-height: 1; }
+  .mqb-icon-svg { width: 20px; height: 20px; color: var(--accent); }
   .mqb-label {
     font-size: 9px; color: var(--muted); font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
@@ -286,6 +286,27 @@
     border-radius: 6px; padding: 9px 12px; margin-bottom: 12px;
     font-size: 11.5px; line-height: 1.45;
   }
+
+
+  .meal-config-controls {
+    display: flex; gap: 8px; margin-bottom: 14px;
+  }
+  .mcc-field { flex: 1; min-width: 0; }
+  .mcc-field label {
+    display: block; font-size: 9.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;
+  }
+  .mcc-select {
+    width: 100%; padding: 8px 10px; background-color: var(--card2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 12.5px; margin-bottom: 0;
+  }
+  .mcc-select:focus { outline: none; border-color: var(--accent); }
+  .mi-suggest {
+    display: block; font-size: 10px; color: var(--muted);
+    margin-top: 3px; font-weight: 400; line-height: 1.45;
+  }
+  .mi-suggest em { color: var(--accent); font-style: normal; }
 
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
@@ -337,7 +358,7 @@
   .meal-item.missing { opacity: 0.65; }
   .mi-name { font-size: 12.5px; font-weight: 600; }
   .mi-note { display: block; font-size: 10.5px; color: var(--muted); font-style: italic; font-weight: 400; margin-top: 1px; }
-  .mi-warn { display: block; font-size: 10px; color: #e8927a; font-weight: 400; margin-top: 1px; }
+  .mi-warn { display: block; font-size: 10px; color: #e8927a; font-weight: 400; margin-top: 2px; line-height: 1.45; }
   .mi-qty { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .mi-macros { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
   .meal-compare {
@@ -879,11 +900,11 @@
 
     <div class="profile-actions">
       <button class="meal-quick-btn" id="calcQuickBtn" style="display:none;">
-        <span class="mqb-icon">🧮</span>
+        <svg class="mqb-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8.5 7h7"/><circle cx="9" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
         <span class="mqb-label">Calculator</span>
       </button>
       <button class="meal-quick-btn" id="mealQuickBtn" style="display:none;">
-        <span class="mqb-icon">🍽️</span>
+        <svg class="mqb-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3.5"/><path d="M3.5 4v4.5M3.5 4v4.5M20.5 4v4.5"/></svg>
         <span class="mqb-label">Meal Plan</span>
       </button>
 
@@ -2024,6 +2045,10 @@
     if (scorecard && clientData.clientType !== "Nutrition Only") {
       scorecard.style.display = visible ? "" : "none";
     }
+    // The speciality row sits between the scorecard and tabs — without this
+    // it drops to the bottom of the meal plan panel when the rest hides.
+    const speciality = document.querySelector(".speciality-row");
+    if (speciality) speciality.style.display = visible ? "" : "none";
   }
 
   function configureUiForClientType() {
@@ -3614,6 +3639,11 @@
     if (age && !document.getElementById("calcAge").value) {
       document.getElementById("calcAge").value = age;
     }
+    // Height is stored in cm; only prefill when the calculator is in metric
+    if (clientData.height && !document.getElementById("calcHeight").value
+        && document.getElementById("calcUnits").value === "Metric") {
+      document.getElementById("calcHeight").value = clientData.height;
+    }
 
     btn.onclick = () => {
       setDashboardSectionsVisible(false);
@@ -3838,6 +3868,76 @@
     "Afternoon": "A", "Mid Afternoon": "MA", "Evening": "E", "Night": "N"
   };
 
+
+  // In-app overrides for meal config / training window, so a plan's split can
+  // be tried without editing the sheet. Not persisted — the sheet stays the
+  // source of truth; this is for exploring arrangements.
+  const mealPlanOverrides = {};
+
+  const MEAL_CONFIG_OPTIONS = ["3M2S","3M3S","3M4S","4M","4M1S","4M2S","5M","5M1S",
+    "5M2S","6M","6M1S","6M2S","7M","7M1S","8M"];
+  const TRAINING_WINDOW_OPTIONS = ["Early Morning","Morning","Mid Morning",
+    "Afternoon","Mid Afternoon","Evening","Night"];
+
+  function buildMealConfigControls(planName, config, trainingWindow) {
+    if (!isAdminView) {
+      // Clients just see what's set, not the controls
+      return (config && trainingWindow)
+        ? `<p class="meal-config">${config} · training ${trainingWindow}</p>` : "";
+    }
+    return `
+      <div class="meal-config-controls">
+        <div class="mcc-field">
+          <label>Meal split</label>
+          <select class="mcc-select" data-plan="${planName}" data-kind="config">
+            <option value="">— not set —</option>
+            ${MEAL_CONFIG_OPTIONS.map(o =>
+              `<option${o === config ? " selected" : ""}>${o}</option>`).join("")}
+          </select>
+        </div>
+        <div class="mcc-field">
+          <label>Training time</label>
+          <select class="mcc-select" data-plan="${planName}" data-kind="window">
+            <option value="">— not set —</option>
+            ${TRAINING_WINDOW_OPTIONS.map(o =>
+              `<option${o === trainingWindow ? " selected" : ""}>${o}</option>`).join("")}
+          </select>
+        </div>
+      </div>`;
+  }
+
+  function wireMealConfigControls(renderPlan) {
+    document.querySelectorAll(".mcc-select").forEach(sel => {
+      sel.onchange = () => {
+        const plan = sel.dataset.plan;
+        if (!mealPlanOverrides[plan]) mealPlanOverrides[plan] = {};
+        mealPlanOverrides[plan][sel.dataset.kind === "config" ? "config" : "window"] = sel.value;
+        renderPlan(plan);
+      };
+    });
+  }
+
+
+  // Suggests close matches when a food name doesn't resolve — mismatches are
+  // almost always whitespace, casing, or a slight wording difference, so
+  // showing the nearest names makes the fix obvious.
+  function suggestFoodNames(name, limit) {
+    if (!name) return [];
+    const target = String(name).trim().toLowerCase();
+    const words = target.split(/[\s,]+/).filter(w => w.length > 2);
+    if (!words.length) return [];
+
+    const scored = [];
+    (clientData.foodDatabase || []).forEach(f => {
+      const candidate = String(f.n).toLowerCase();
+      let score = 0;
+      words.forEach(w => { if (candidate.indexOf(w) !== -1) score++; });
+      if (score > 0) scored.push({ name: f.n, score });
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit || 3).map(s => s.name);
+  }
+
   function getFoodByName(name) {
     if (!name) return null;
     const target = String(name).trim().toLowerCase();
@@ -3912,9 +4012,14 @@
       });
       mealOrder.sort((a, b) => mealMap[a].order - mealMap[b].order);
 
-      // Distribution targets for this configuration and training window
-      const config = meta["Meal Config"];
-      const windowKey = TRAINING_WINDOW_KEYS[meta["Training Window"]];
+      // Distribution targets for this configuration and training window.
+      // A coach can override these in-app to try different splits without
+      // editing the sheet — useful when the same base macros need arranging
+      // differently for a particular day.
+      const override = mealPlanOverrides[planName] || {};
+      const config = override.config || meta["Meal Config"];
+      const trainingWindow = override.window || meta["Training Window"];
+      const windowKey = TRAINING_WINDOW_KEYS[trainingWindow];
       const distribution = (config && windowKey && MEAL_DISTRIBUTION[config])
         ? MEAL_DISTRIBUTION[config][windowKey] : null;
 
@@ -3935,8 +4040,12 @@
           const m = macrosForItem(r["Food Name"], grams);
           if (!m) {
             missingFoods.push(r["Food Name"]);
+            const suggestions = suggestFoodNames(r["Food Name"], 3);
             return `<div class="meal-item missing">
-                <div class="mi-name">${r["Food Name"] || "—"}<span class="mi-warn">not found in food database</span></div>
+                <div class="mi-name">${r["Food Name"] || "—"}
+                  <span class="mi-warn">Not found in the food database — check the spelling matches the FOOD INDEX tab exactly.</span>
+                  ${suggestions.length ? `<span class="mi-suggest">Did you mean: ${suggestions.map(s => `<em>${s}</em>`).join(" · ")}</span>` : ""}
+                </div>
                 <div class="mi-qty">${grams}g</div>
               </div>`;
           }
@@ -3984,7 +4093,7 @@
 
       panel.innerHTML = `
         ${meta["Description"] ? `<p class="meal-desc">${meta["Description"]}</p>` : ""}
-        ${config && meta["Training Window"] ? `<p class="meal-config">${config} · training ${meta["Training Window"]}</p>` : ""}
+        ${buildMealConfigControls(planName, config, trainingWindow)}
 
         ${hasPrescribed ? `
         <div class="chart-card">
@@ -4014,9 +4123,10 @@
       `;
     };
 
-    renderPlan(planNames[0]);
+    const renderAndWire = (name) => { renderPlan(name); wireMealConfigControls(renderAndWire); };
+    renderAndWire(planNames[0]);
     const sel = document.getElementById("mealPlanSelect");
-    if (sel) sel.onchange = () => renderPlan(sel.value);
+    if (sel) sel.onchange = () => renderAndWire(sel.value);
   }
 
   // A single macro column in the daily totals, showing actual against prescribed
