@@ -268,6 +268,34 @@
   }
 
 
+
+  /* ---------- Calculator (condensed) ---------- */
+  .calc-result-bar {
+    background: var(--card); border: 1px solid var(--accent-dim);
+    border-radius: 12px; padding: 13px 14px; margin-bottom: 14px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .calc-inputs {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 13px 14px;
+  }
+  .calc-row { display: flex; gap: 8px; }
+  .calc-field { flex: 1; min-width: 0; margin-bottom: 10px; }
+  .calc-field label {
+    display: block; font-size: 9.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;
+  }
+  .calc-field input, .calc-field select {
+    width: 100%; padding: 8px 10px; background-color: var(--card2);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-size: 13px; margin-bottom: 0;
+  }
+  .calc-field input:focus, .calc-field select:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .calc-result-bar .day-totals { margin-bottom: 12px; }
+  .calc-result-bar button.full { margin-top: 0; }
+
   .calc-chain {
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     font-size: 11.5px; color: var(--muted); margin-bottom: 14px;
@@ -307,6 +335,44 @@
     margin-top: 3px; font-weight: 400; line-height: 1.45;
   }
   .mi-suggest em { color: var(--accent); font-style: normal; }
+
+
+  .mcc-status { font-size: 10.5px; color: var(--muted); margin-top: 6px; min-height: 14px; }
+  .mcc-status.saved { color: #7ab478; }
+  .mcc-status.error { color: #e8927a; }
+
+  .edit-items { padding: 6px 12px 4px; }
+  .edit-item {
+    display: grid; grid-template-columns: 1fr 62px auto auto;
+    gap: 6px; align-items: center; padding: 6px 0;
+    border-bottom: 1px solid rgba(42,36,28,0.5);
+  }
+  .edit-item:last-child { border-bottom: none; }
+  .ei-food, .ei-grams {
+    padding: 7px 9px; background-color: var(--card2);
+    border: 1px solid var(--border); border-radius: 7px;
+    color: var(--text); font-size: 12.5px; min-width: 0; margin-bottom: 0;
+  }
+  .ei-food:focus, .ei-grams:focus { outline: none; border-color: var(--accent); }
+  .ei-grams { text-align: center; }
+  .ei-unit { font-size: 11px; color: var(--muted); }
+  .ei-remove {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 19px; line-height: 1; padding: 0 4px; cursor: pointer;
+  }
+  .ei-remove:hover { color: var(--flame); background: transparent; }
+  .ei-macros {
+    grid-column: 1 / -1; font-size: 10.5px; color: var(--muted); margin-top: -2px;
+  }
+  .ei-unmatched { color: #e8927a; }
+  .ei-add {
+    width: calc(100% - 24px); margin: 4px 12px 12px;
+    background: var(--card2); color: var(--accent);
+    border: 1px dashed var(--accent-dim); border-radius: 8px;
+    padding: 8px; font-size: 12px; font-weight: 600;
+  }
+  .ei-add:hover { border-color: var(--accent); background: var(--card2); }
+  .edit-actions { margin-top: 16px; }
 
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
@@ -934,33 +1000,51 @@
       <h2 class="block-title" style="margin:0;">Calculator</h2>
       <button class="logout" id="calcCloseBtn">← Back</button>
     </div>
-    <p class="block-sub">Starting point for prescribed targets</p>
 
-    <div class="chart-card">
-      <h3>Client details</h3>
-      <div class="form-field">
-        <label>Units</label>
-        <select id="calcUnits">
-          <option value="Metric">Metric (kg / cm)</option>
-          <option value="Imperial">Imperial (lb / in)</option>
-        </select>
-      </div>
-      <div class="form-grid">
-        <div class="form-field">
+    <div class="calc-result-bar" id="calcResultCard" style="display:none;">
+      <div class="calc-chain" id="calcChain"></div>
+      <div class="day-totals" id="calcMacros"></div>
+      <button class="full" id="calcCopyBtn">Copy to Meal Plan</button>
+      <div class="checkin-form-msg" id="calcCopyMsg"></div>
+    </div>
+
+    <div id="calcWarnings"></div>
+
+    <div class="calc-inputs">
+      <div class="calc-row">
+        <div class="calc-field">
+          <label>Units</label>
+          <select id="calcUnits">
+            <option value="Metric">Metric</option>
+            <option value="Imperial">Imperial</option>
+          </select>
+        </div>
+        <div class="calc-field">
           <label>Sex</label>
           <select id="calcSex"><option>Male</option><option>Female</option></select>
         </div>
-        <div class="form-field"><label>Age</label><input type="number" id="calcAge"></div>
+        <div class="calc-field">
+          <label>Age</label>
+          <input type="number" id="calcAge">
+        </div>
       </div>
-      <div class="form-grid">
-        <div class="form-field"><label id="calcWeightLabel">Weight (kg)</label><input type="number" step="0.1" id="calcWeight"></div>
-        <div class="form-field"><label id="calcHeightLabel">Height (cm)</label><input type="number" step="0.1" id="calcHeight"></div>
-      </div>
-    </div>
 
-    <div class="chart-card">
-      <h3>Method</h3>
-      <div class="form-field">
+      <div class="calc-row">
+        <div class="calc-field">
+          <label id="calcWeightLabel">Weight (kg)</label>
+          <input type="number" step="0.1" id="calcWeight">
+        </div>
+        <div class="calc-field">
+          <label id="calcHeightLabel">Height (cm)</label>
+          <input type="number" step="0.1" id="calcHeight">
+        </div>
+        <div class="calc-field" id="calcBfWrap" style="display:none;">
+          <label>Body fat %</label>
+          <input type="number" step="0.1" id="calcBodyFat">
+        </div>
+      </div>
+
+      <div class="calc-field">
         <label>BMR equation</label>
         <select id="calcBmrMethod">
           <option>Harris Benedict (Revised)</option>
@@ -968,40 +1052,27 @@
           <option>Katch-Mcardle (Actual BF)</option>
         </select>
       </div>
-      <div class="form-field" id="calcBfWrap" style="display:none;">
-        <label>Body fat %</label>
-        <input type="number" step="0.1" id="calcBodyFat">
-      </div>
-      <div class="form-field">
+
+      <div class="calc-field">
         <label>Activity level</label>
         <select id="calcActivity"></select>
       </div>
-    </div>
 
-    <div class="chart-card">
-      <h3>Targets</h3>
-      <div class="form-field">
-        <label>Diet phase</label>
-        <select id="calcDietPhase"></select>
+      <div class="calc-row">
+        <div class="calc-field">
+          <label>Diet phase</label>
+          <select id="calcDietPhase"></select>
+        </div>
+        <div class="calc-field">
+          <label>Carb loading</label>
+          <select id="calcCarbLoad"></select>
+        </div>
       </div>
-      <div class="form-field">
+
+      <div class="calc-field">
         <label>Macro split</label>
         <select id="calcMacroSplit"></select>
       </div>
-      <div class="form-field">
-        <label>Carb loading</label>
-        <select id="calcCarbLoad"></select>
-      </div>
-    </div>
-
-    <div id="calcWarnings"></div>
-
-    <div class="chart-card" id="calcResultCard" style="display:none;">
-      <h3>Result</h3>
-      <div class="calc-chain" id="calcChain"></div>
-      <div class="day-totals" id="calcMacros"></div>
-      <button class="full" id="calcCopyBtn" style="margin-top:14px;">Copy to Meal Plan</button>
-      <div class="checkin-form-msg" id="calcCopyMsg"></div>
     </div>
   </div>
 
@@ -3869,9 +3940,8 @@
   };
 
 
-  // In-app overrides for meal config / training window, so a plan's split can
-  // be tried without editing the sheet. Not persisted — the sheet stays the
-  // source of truth; this is for exploring arrangements.
+  // Pending meal config / training window changes, held briefly between the
+  // dropdown changing and the save completing.
   const mealPlanOverrides = {};
 
   const MEAL_CONFIG_OPTIONS = ["3M2S","3M3S","3M4S","4M","4M1S","4M2S","5M","5M1S",
@@ -3903,18 +3973,76 @@
               `<option${o === trainingWindow ? " selected" : ""}>${o}</option>`).join("")}
           </select>
         </div>
-      </div>`;
+      </div>
+      <div class="mcc-status" id="mccStatus"></div>`;
   }
 
   function wireMealConfigControls(renderPlan) {
     document.querySelectorAll(".mcc-select").forEach(sel => {
-      sel.onchange = () => {
+      sel.onchange = async () => {
         const plan = sel.dataset.plan;
+        const kind = sel.dataset.kind === "config" ? "config" : "window";
         if (!mealPlanOverrides[plan]) mealPlanOverrides[plan] = {};
-        mealPlanOverrides[plan][sel.dataset.kind === "config" ? "config" : "window"] = sel.value;
+        mealPlanOverrides[plan][kind] = sel.value;
+
+        // Re-render immediately so the split updates without waiting on the save
         renderPlan(plan);
+        await saveMealPlanConfig(plan);
       };
     });
+  }
+
+  // Persists the split and training window so they survive a refresh.
+  async function saveMealPlanConfig(planName) {
+    const meta = (clientData.mealPlanMeta || []).find(m => (m["Plan Name"] || "") === planName) || {};
+    const o = mealPlanOverrides[planName] || {};
+    const config = o.config !== undefined ? o.config : (meta["Meal Config"] || "");
+    const trainingWindow = o.window !== undefined ? o.window : (meta["Training Window"] || "");
+
+    const statusEl = document.getElementById("mccStatus");
+    if (statusEl) { statusEl.textContent = "Saving..."; statusEl.className = "mcc-status"; }
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "saveMealPlanConfig",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          planName: planName,
+          config: config,
+          trainingWindow: trainingWindow
+        })
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        if (statusEl) { statusEl.textContent = data.error; statusEl.className = "mcc-status error"; }
+        return;
+      }
+
+      // Update the local copy so a re-render doesn't revert what was just saved
+      const existing = (clientData.mealPlanMeta || []).find(m => (m["Plan Name"] || "") === planName);
+      if (existing) {
+        existing["Meal Config"] = config;
+        existing["Training Window"] = trainingWindow;
+      } else {
+        if (!clientData.mealPlanMeta) clientData.mealPlanMeta = [];
+        clientData.mealPlanMeta.push({
+          "Client": clientData.client, "Plan Name": planName,
+          "Meal Config": config, "Training Window": trainingWindow
+        });
+      }
+      delete mealPlanOverrides[planName];
+
+      if (statusEl) { statusEl.textContent = "Saved"; statusEl.className = "mcc-status saved"; }
+      setTimeout(() => { if (statusEl) statusEl.textContent = ""; }, 2000);
+    } catch (err) {
+      if (statusEl) { statusEl.textContent = "Couldn't save — check your connection."; statusEl.className = "mcc-status error"; }
+      console.error(err);
+    }
   }
 
 
@@ -3955,6 +4083,252 @@
       f: food.f * factor,
       c: food.c * factor
     };
+  }
+
+
+  // ---------- Meal plan editing (coach only) ----------
+  // Edits are held in memory while the coach works, then saved back as a
+  // whole-plan replacement. Keeps the sheet as the source of truth without
+  // writing on every keystroke.
+  let mealEditState = null;   // { planName, items: [...] } or null when not editing
+
+  function startMealEdit(planName) {
+    const rows = (clientData.mealPlans || []).filter(r => {
+      const active = String(r["Active"] || "Y").trim().toUpperCase();
+      return active !== "N" && (r["Plan Name"] || "Plan") === planName;
+    });
+    mealEditState = {
+      planName,
+      items: rows.map(r => ({
+        meal: r["Meal"] || "",
+        mealOrder: Number(r["Meal Order"]) || 1,
+        foodName: r["Food Name"] || "",
+        grams: Number(r["Quantity (g)"]) || 0,
+        notes: r["Notes"] || ""
+      }))
+    };
+  }
+
+  function cancelMealEdit() { mealEditState = null; }
+
+  // The meal slots for the current config/window, so foods can only be
+  // assigned to meals the distribution actually knows about.
+  function mealSlotsForPlan(planName) {
+    const meta = (clientData.mealPlanMeta || []).find(m => (m["Plan Name"] || "") === planName) || {};
+    const o = mealPlanOverrides[planName] || {};
+    const config = o.config || meta["Meal Config"];
+    const win = o.window || meta["Training Window"];
+    const key = TRAINING_WINDOW_KEYS[win];
+    if (!config || !key || !MEAL_DISTRIBUTION[config] || !MEAL_DISTRIBUTION[config][key]) return [];
+    return MEAL_DISTRIBUTION[config][key].map(d => d[0]);
+  }
+
+  function addMealItem(meal, order) {
+    if (!mealEditState) return;
+    mealEditState.items.push({ meal, mealOrder: order, foodName: "", grams: 100, notes: "" });
+    rerenderMealEditor();
+  }
+
+  function removeMealItem(index) {
+    if (!mealEditState) return;
+    mealEditState.items.splice(index, 1);
+    rerenderMealEditor();
+  }
+
+  function rerenderMealEditor() {
+    renderMealPlanView(document.getElementById("mealPlanPanelContent"));
+  }
+
+  function renderMealEditor(container, planName) {
+    const slots = mealSlotsForPlan(planName);
+    if (!slots.length) {
+      container.innerHTML = `<div class="chart-empty">
+        Set a meal split and training time before adding foods — the split
+        determines which meal slots are available.
+      </div>` + buildEditActions(planName);
+      wireEditActions(planName);
+      return;
+    }
+
+    const meta = (clientData.mealPlanMeta || []).find(m => (m["Plan Name"] || "") === planName) || {};
+    const weekTargets = getTargetsForDate(new Date().toISOString().split("T")[0]);
+    const prescribed = {
+      kcal: Number(meta["Calorie Target"]) || Number(weekTargets.calories) || 0,
+      p: Number(meta["Protein Target"]) || Number(weekTargets.protein) || 0,
+      f: Number(meta["Fat Target"]) || Number(weekTargets.fat) || 0,
+      c: Number(meta["Carb Target"]) || Number(weekTargets.carb) || 0
+    };
+
+    const o = mealPlanOverrides[planName] || {};
+    const config = o.config || meta["Meal Config"];
+    const key = TRAINING_WINDOW_KEYS[o.window || meta["Training Window"]];
+    const dist = MEAL_DISTRIBUTION[config][key];
+    const distByMeal = {};
+    dist.forEach(([label, p, f, c]) => { distByMeal[label] = { p, f, c }; });
+
+    const totals = { kcal: 0, p: 0, f: 0, c: 0 };
+    let html = "";
+
+    slots.forEach((slot, slotIdx) => {
+      const items = mealEditState.items
+        .map((it, i) => ({ it, i }))
+        .filter(x => x.it.meal === slot);
+
+      const mealTotals = { kcal: 0, p: 0, f: 0, c: 0 };
+      const itemsHtml = items.map(({ it, i }) => {
+        const m = macrosForItem(it.foodName, it.grams);
+        if (m) {
+          mealTotals.kcal += m.kcal; mealTotals.p += m.p;
+          mealTotals.f += m.f; mealTotals.c += m.c;
+        }
+        return `
+          <div class="edit-item">
+            <input list="foodList" class="ei-food" data-idx="${i}"
+                   value="${escapeAttr(it.foodName)}" placeholder="Start typing a food...">
+            <input type="number" class="ei-grams" data-idx="${i}" value="${it.grams}" min="0">
+            <span class="ei-unit">g</span>
+            <button class="ei-remove" data-idx="${i}" title="Remove">×</button>
+            ${m ? `<div class="ei-macros">${Math.round(m.kcal)} kcal · P${Math.round(m.p)} F${Math.round(m.f)} C${Math.round(m.c)}</div>`
+                : (it.foodName ? `<div class="ei-macros ei-unmatched">Not in database</div>` : "")}
+          </div>`;
+      }).join("");
+
+      totals.kcal += mealTotals.kcal; totals.p += mealTotals.p;
+      totals.f += mealTotals.f; totals.c += mealTotals.c;
+
+      const d = distByMeal[slot];
+      const mealPrescribed = d ? {
+        p: prescribed.p * d.p, f: prescribed.f * d.f, c: prescribed.c * d.c
+      } : null;
+
+      html += `
+        <div class="meal-block">
+          <div class="meal-head">
+            <div class="meal-name">${slot}</div>
+            <div class="meal-kcal">${Math.round(mealTotals.kcal)} kcal</div>
+          </div>
+          <div class="edit-items">${itemsHtml}</div>
+          ${mealPrescribed ? `<div class="meal-compare">
+              ${compareRow("P", mealTotals.p, mealPrescribed.p)}
+              ${compareRow("F", mealTotals.f, mealPrescribed.f)}
+              ${compareRow("C", mealTotals.c, mealPrescribed.c)}
+            </div>` : ""}
+          <button class="ei-add" data-meal="${escapeAttr(slot)}" data-order="${slotIdx + 1}">+ Add food</button>
+        </div>`;
+    });
+
+    const foodOptions = (clientData.foodDatabase || [])
+      .map(f => `<option value="${escapeAttr(f.n)}">`).join("");
+
+    container.innerHTML = `
+      <div class="chart-card">
+        <h3>Running totals</h3>
+        <div class="day-totals">
+          ${totalCol("Calories", totals.kcal, prescribed.kcal, "")}
+          ${totalCol("Protein", totals.p, prescribed.p, "g")}
+          ${totalCol("Fat", totals.f, prescribed.f, "g")}
+          ${totalCol("Carbs", totals.c, prescribed.c, "g")}
+        </div>
+      </div>
+      <datalist id="foodList">${foodOptions}</datalist>
+      ${html}
+      ${buildEditActions(planName)}
+    `;
+
+    // Field edits update state without a full re-render, so focus isn't lost
+    container.querySelectorAll(".ei-food").forEach(el => {
+      el.addEventListener("change", () => {
+        mealEditState.items[Number(el.dataset.idx)].foodName = el.value;
+        rerenderMealEditor();
+      });
+    });
+    container.querySelectorAll(".ei-grams").forEach(el => {
+      el.addEventListener("change", () => {
+        mealEditState.items[Number(el.dataset.idx)].grams = Number(el.value) || 0;
+        rerenderMealEditor();
+      });
+    });
+    container.querySelectorAll(".ei-remove").forEach(el => {
+      el.onclick = () => removeMealItem(Number(el.dataset.idx));
+    });
+    container.querySelectorAll(".ei-add").forEach(el => {
+      el.onclick = () => addMealItem(el.dataset.meal, Number(el.dataset.order));
+    });
+    wireEditActions(planName);
+  }
+
+  function buildEditActions(planName) {
+    return `
+      <div class="edit-actions">
+        <button class="full" id="mealSaveBtn">Save Plan</button>
+        <button class="logout full" id="mealCancelBtn" style="margin-top:8px;">Cancel</button>
+        <div class="checkin-form-msg" id="mealSaveMsg"></div>
+      </div>`;
+  }
+
+  function wireEditActions(planName) {
+    const saveBtn = document.getElementById("mealSaveBtn");
+    const cancelBtn = document.getElementById("mealCancelBtn");
+    if (saveBtn) saveBtn.onclick = () => saveMealPlanItems(planName);
+    if (cancelBtn) cancelBtn.onclick = () => { cancelMealEdit(); rerenderMealEditor(); };
+  }
+
+  function escapeAttr(s) {
+    return String(s == null ? "" : s).replace(/"/g, "&quot;");
+  }
+
+  async function saveMealPlanItems(planName) {
+    const msg = document.getElementById("mealSaveMsg");
+    function show(text, isError) {
+      if (!msg) return;
+      msg.textContent = text;
+      msg.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    const items = mealEditState.items.filter(it => it.foodName && it.grams > 0);
+    const unmatched = items.filter(it => !getFoodByName(it.foodName));
+    if (unmatched.length) {
+      show(`${unmatched.length} item${unmatched.length === 1 ? " doesn't" : "s don't"} match the food database. Fix or remove ${unmatched.length === 1 ? "it" : "them"} before saving.`, true);
+      return;
+    }
+
+    const btn = document.getElementById("mealSaveBtn");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    showLoading("Saving meal plan...");
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "saveMealPlanItems",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          planName: planName,
+          items: items
+        })
+      });
+      const data = await res.json();
+
+      if (data.error) { show(data.error, true); return; }
+
+      // Pull fresh data so the view reflects exactly what was stored
+      const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+      const refreshed = await (await fetch(url)).json();
+      if (!refreshed.error) clientData = refreshed;
+
+      cancelMealEdit();
+      rerenderMealEditor();
+    } catch (err) {
+      show("Couldn't save — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save Plan";
+      hideLoading();
+    }
   }
 
   function renderMealPlanView(content) {
@@ -4013,9 +4387,7 @@
       mealOrder.sort((a, b) => mealMap[a].order - mealMap[b].order);
 
       // Distribution targets for this configuration and training window.
-      // A coach can override these in-app to try different splits without
-      // editing the sheet — useful when the same base macros need arranging
-      // differently for a particular day.
+      // Set in-app by the coach and saved back to Meal_Plan_Meta.
       const override = mealPlanOverrides[planName] || {};
       const config = override.config || meta["Meal Config"];
       const trainingWindow = override.window || meta["Training Window"];
@@ -4094,6 +4466,7 @@
       panel.innerHTML = `
         ${meta["Description"] ? `<p class="meal-desc">${meta["Description"]}</p>` : ""}
         ${buildMealConfigControls(planName, config, trainingWindow)}
+        ${isAdminView ? `<button class="full" id="mealEditBtn" style="margin-bottom:14px;">Edit Plan</button>` : ""}
 
         ${hasPrescribed ? `
         <div class="chart-card">
@@ -4123,7 +4496,17 @@
       `;
     };
 
-    const renderAndWire = (name) => { renderPlan(name); wireMealConfigControls(renderAndWire); };
+    const renderAndWire = (name) => {
+      // In edit mode the editor replaces the read-only view entirely
+      if (mealEditState && mealEditState.planName === name) {
+        renderMealEditor(document.getElementById("mealPlanContent"), name);
+        return;
+      }
+      renderPlan(name);
+      wireMealConfigControls(renderAndWire);
+      const editBtn = document.getElementById("mealEditBtn");
+      if (editBtn) editBtn.onclick = () => { startMealEdit(name); renderAndWire(name); };
+    };
     renderAndWire(planNames[0]);
     const sel = document.getElementById("mealPlanSelect");
     if (sel) sel.onchange = () => renderAndWire(sel.value);
