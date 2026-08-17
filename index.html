@@ -107,8 +107,19 @@
   .logout:hover { color: var(--text); background: transparent; }
 
   /* ---------- Client profile row ---------- */
-  .profile-row { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; justify-content: space-between; }
-  .profile-row > div:nth-child(3) { flex-shrink: 0; }
+  /* Profile row wraps on narrow screens — avatar and name stay together,
+     the action buttons and animal widget drop to a second line rather than
+     being squeezed onto one. */
+  .profile-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .profile-identity {
+    display: flex; align-items: center; gap: 12px;
+    flex: 1 1 auto; min-width: 0;
+  }
+  .profile-identity > div { min-width: 0; }
+  .profile-name { overflow: hidden; text-overflow: ellipsis; }
 
   .animal-widget { text-align: center; flex-shrink: 0; }
   .animal-display { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 6px; }
@@ -250,13 +261,13 @@
 
 
   .profile-actions {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 8px;
     margin-left: auto; flex-shrink: 0;
   }
   .meal-quick-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    display: flex; flex-direction: row; align-items: center; gap: 6px;
     background: var(--card); border: 1px solid var(--accent-dim);
-    border-radius: 12px; padding: 9px 11px; cursor: pointer;
+    border-radius: 10px; padding: 8px 12px; cursor: pointer;
     transition: border-color 0.15s ease, transform 0.1s ease;
   }
   .meal-quick-btn:hover { border-color: var(--accent); background: var(--card); }
@@ -373,6 +384,47 @@
   }
   .ei-add:hover { border-color: var(--accent); background: var(--card2); }
   .edit-actions { margin-top: 16px; }
+
+
+  .plan-selector-row { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .plan-selector-row select { margin-bottom: 0; flex: 1; }
+  .plan-new-btn {
+    flex-shrink: 0; width: 42px; height: 42px;
+    background: var(--card2); color: var(--accent);
+    border: 1px solid var(--accent-dim); border-radius: 8px;
+    font-size: 22px; line-height: 1; padding: 0;
+  }
+  .plan-new-btn:hover { border-color: var(--accent); background: var(--card2); }
+  .create-plan-card { border-color: var(--accent-dim); }
+
+
+  .plan-action-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .plan-action-btn {
+    flex: 1; background: var(--accent); color: #0a0908;
+    border: none; border-radius: 8px; padding: 11px;
+    font-size: 13px; font-weight: 700;
+  }
+  .plan-action-btn.secondary {
+    background: var(--card2); color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .plan-action-btn.secondary:hover { color: var(--text); border-color: var(--accent-dim); background: var(--card2); }
+
+  .micro-toggle {
+    width: 100%; background: var(--card2); color: var(--accent);
+    border: 1px solid var(--accent-dim); border-radius: 8px;
+    padding: 9px; font-size: 12px; font-weight: 600; margin-bottom: 14px;
+  }
+  .micro-toggle:hover { border-color: var(--accent); background: var(--card2); }
+  .micro-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px;
+  }
+  .micro-item {
+    background: var(--card2); border-radius: 8px; padding: 8px 10px;
+  }
+  .micro-label { font-size: 9.5px; color: var(--muted); margin-bottom: 2px; }
+  .micro-value { font-size: 14px; font-weight: 700; color: var(--text); }
+  .micro-value span { font-size: 9.5px; color: var(--muted); font-weight: 400; margin-left: 2px; }
 
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
@@ -902,6 +954,57 @@
     -webkit-appearance: none;
     margin: 0;
   }
+
+  /* ---------------------------------------------------------------
+     Mobile layout — the dashboard header packs a lot in (avatar, name,
+     two action buttons, the animal widget) which doesn't fit across one
+     line on a phone. Below 560px these stack into clearer rows.
+     --------------------------------------------------------------- */
+  @media (max-width: 560px) {
+    .profile-identity { flex: 1 1 100%; }
+
+    .profile-actions {
+      flex: 1 1 100%;
+      margin-left: 0;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .meal-quick-btn { flex: 1; justify-content: center; }
+    .mqb-label { font-size: 10px; }
+
+    .animal-widget { flex-shrink: 0; }
+    .animal-select { font-size: 10px; padding: 4px 6px; }
+    .animal-icon { font-size: 20px; }
+    .animal-count { font-size: 16px; }
+
+    /* Two rows of four rather than one cramped row of eight */
+    .scorecard { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .stat-chip { padding: 8px 4px; }
+    .stat-value { font-size: 13px; }
+    .stat-label { font-size: 8.5px; }
+
+    .day-totals { gap: 6px; }
+    .dt-col { padding: 8px 4px; }
+    .dt-actual { font-size: 15px; }
+    .dt-label { font-size: 8.5px; }
+    .dt-target, .dt-diff { font-size: 9px; }
+
+    /* Editor rows go full-width per control rather than side by side */
+    .edit-item { grid-template-columns: 1fr; gap: 5px; }
+    .ei-qty-row { display: flex; align-items: center; gap: 6px; }
+    .ei-grams { flex: 1; }
+
+    .calc-row { flex-direction: column; gap: 0; }
+    .meal-config-controls { flex-direction: column; gap: 10px; }
+  }
+
+  /* Very narrow phones — drop the scorecard to two rows of two */
+  @media (max-width: 380px) {
+    .scorecard { grid-template-columns: repeat(2, 1fr); }
+    .day-totals { flex-wrap: wrap; }
+    .dt-col { flex: 1 1 calc(50% - 3px); }
+  }
+
 </style>
 </head>
 <body>
@@ -951,17 +1054,19 @@
   </div>
 
   <div class="profile-row">
-    <div class="avatar-outer" id="avatarWrap">
-      <div class="avatar-wrap">
-        <img id="avatarImg" style="display:none;">
-        <span class="initials" id="avatarInitials"></span>
+    <div class="profile-identity">
+      <div class="avatar-outer" id="avatarWrap">
+        <div class="avatar-wrap">
+          <img id="avatarImg" style="display:none;">
+          <span class="initials" id="avatarInitials"></span>
+        </div>
+        <div class="edit-badge" id="editBadge">+</div>
       </div>
-      <div class="edit-badge" id="editBadge">+</div>
-    </div>
-    <input type="file" id="photoInput" accept="image/*">
-    <div>
-      <div class="profile-name" id="clientNameLabel"></div>
-      <div class="profile-sub" id="profileSub">Tap your photo to update it</div>
+      <input type="file" id="photoInput" accept="image/*">
+      <div>
+        <div class="profile-name" id="clientNameLabel"></div>
+        <div class="profile-sub" id="profileSub">Tap your photo to update it</div>
+      </div>
     </div>
 
     <div class="profile-actions">
@@ -3649,9 +3754,11 @@
 
   function setupCalculator() {
     const btn = document.getElementById("calcQuickBtn");
-    // Coach-only: the calculator is a planning tool, not client-facing
-    btn.style.display = isAdminView ? "flex" : "none";
-    if (!isAdminView) {
+    // Coach-only. Checked against the live coach credentials rather than
+    // isAdminView alone, so a stale flag can never expose it to a client.
+    const isCoachSession = isAdminView && clientData.isCoachSession === true;
+    btn.style.display = isCoachSession ? "flex" : "none";
+    if (!isCoachSession) {
       document.getElementById("calcPanel").style.display = "none";
       return;
     }
@@ -3741,7 +3848,7 @@
 
     const plans = (clientData.mealPlanMeta || []).map(m => m["Plan Name"]).filter(Boolean);
     if (!plans.length) {
-      show("This client has no meal plan yet — add one in Meal_Plan_Meta first.", true);
+      show("No meal plan yet — open Meal Plan and create one first, then come back to copy these targets.", true);
       return;
     }
 
@@ -4086,6 +4193,295 @@
   }
 
 
+
+
+
+  // ---------- Micronutrient panel ----------
+  // The full 56-column nutrient data is only fetched for the foods actually
+  // in a plan, keeping the login payload small.
+
+  const MICRO_GROUPS = [
+    { title: "Minerals", items: [
+      ["Calcium (Ca) (mg)", "Calcium", "mg"],
+      ["Iron (Fe) (mg)", "Iron", "mg"],
+      ["Magnesium (Mg) (mg)", "Magnesium", "mg"],
+      ["Zinc (Zn) (mg)", "Zinc", "mg"],
+      ["Potassium (K) (mg)", "Potassium", "mg"],
+      ["Sodium (Na) (mg)", "Sodium", "mg"],
+      ["Selenium (Se) (ug)", "Selenium", "µg"],
+      ["Iodine (I) (ug)", "Iodine", "µg"],
+      ["Copper (Cu) (mg)", "Copper", "mg"],
+      ["Manganese (Mn) (mg)", "Manganese", "mg"],
+      ["Phosphorus (P) (mg)", "Phosphorus", "mg"]
+    ]},
+    { title: "Vitamins", items: [
+      ["Vitamin A retinol equivalents (ug)", "Vitamin A", "µg"],
+      ["Thiamin (B1) (mg)", "Thiamin (B1)", "mg"],
+      ["Riboflavin (B2) (mg)", "Riboflavin (B2)", "mg"],
+      ["Niacin derived equivalents (mg)", "Niacin (B3)", "mg"],
+      ["Pantothenic acid (B5) (mg)", "Pantothenic acid (B5)", "mg"],
+      ["Pyridoxine (B6) (mg)", "Pyridoxine (B6)", "mg"],
+      ["Biotin (B7) (ug)", "Biotin (B7)", "µg"],
+      ["Total folates (B9) (ug) ", "Folate (B9)", "µg"],
+      ["Cobalamin (B12) (ug)", "Cobalamin (B12)", "µg"],
+      ["Vitamin C (mg)", "Vitamin C", "mg"],
+      ["Cholecalciferol (D3) (ug)", "Vitamin D3", "µg"],
+      ["Vitamin E (mg)", "Vitamin E", "mg"]
+    ]},
+    { title: "Fats & fibre", items: [
+      ["Total dietary fibre (g)", "Fibre", "g"],
+      ["Total saturated fatty acids (g)", "Saturated fat", "g"],
+      ["Total monounsaturated fatty acids (g)", "Monounsaturated", "g"],
+      ["Total polyunsaturated fatty acids (g)", "Polyunsaturated", "g"],
+      ["Total Omega-3 (mg)", "Omega-3", "mg"],
+      ["Cholesterol (mg)", "Cholesterol", "mg"],
+      ["Total sugars (g)", "Sugars", "g"]
+    ]}
+  ];
+
+  let microCache = {};   // food name -> full nutrient row
+
+  async function fetchFoodDetail(names) {
+    const missing = names.filter(n => !microCache[n]);
+    if (!missing.length) return;
+
+    const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}` +
+      `&passcode=${encodeURIComponent(currentPasscode)}` +
+      `&foodDetail=${encodeURIComponent(missing.join("|"))}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error || !data.foods) return;
+
+    data.foods.forEach(f => {
+      const name = f["Food Name"];
+      if (name) microCache[name] = f;
+    });
+  }
+
+  async function renderMicronutrients(container, planName) {
+    const rows = (clientData.mealPlans || []).filter(r => {
+      const active = String(r["Active"] || "Y").trim().toUpperCase();
+      return active !== "N" && (r["Plan Name"] || "Plan") === planName;
+    });
+
+    if (!rows.length) {
+      container.innerHTML = `<div class="chart-empty">Add foods to the plan to see its micronutrient breakdown.</div>`;
+      return;
+    }
+
+    container.innerHTML = `<div class="chart-empty">Loading nutrient data...</div>`;
+
+    const names = [...new Set(rows.map(r => r["Food Name"]).filter(Boolean))];
+    try {
+      await fetchFoodDetail(names);
+    } catch (err) {
+      container.innerHTML = `<div class="chart-empty">Couldn't load nutrient data. Check your connection and try again.</div>`;
+      console.error(err);
+      return;
+    }
+
+    // Sum each nutrient across the plan, scaling by quantity
+    const totals = {};
+    let unmatched = 0;
+    rows.forEach(r => {
+      const detail = microCache[r["Food Name"]];
+      if (!detail) { unmatched++; return; }
+      const factor = (Number(r["Quantity (g)"]) || 0) / 100;
+      MICRO_GROUPS.forEach(g => {
+        g.items.forEach(([col]) => {
+          const v = Number(detail[col]);
+          if (!isNaN(v)) totals[col] = (totals[col] || 0) + v * factor;
+        });
+      });
+    });
+
+    let html = "";
+    MICRO_GROUPS.forEach(group => {
+      const present = group.items.filter(([col]) => totals[col] !== undefined);
+      if (!present.length) return;
+      html += `<div class="chart-card"><h3>${group.title}</h3><div class="micro-grid">`;
+      present.forEach(([col, label, unit]) => {
+        const v = totals[col];
+        const display = v >= 100 ? Math.round(v) : (v >= 10 ? v.toFixed(1) : v.toFixed(2));
+        html += `<div class="micro-item">
+            <div class="micro-label">${label}</div>
+            <div class="micro-value">${display}<span>${unit}</span></div>
+          </div>`;
+      });
+      html += `</div></div>`;
+    });
+
+    if (!html) {
+      html = `<div class="chart-empty">No nutrient data available for these foods.</div>`;
+    }
+    if (unmatched) {
+      html = `<div class="meal-warning">${unmatched} item${unmatched === 1 ? "" : "s"} couldn't be matched and ${unmatched === 1 ? "isn't" : "aren't"} included.</div>` + html;
+    }
+
+    container.innerHTML = html;
+  }
+
+  function buildDuplicateForm(sourcePlan) {
+    return `
+      <div class="chart-card create-plan-card">
+        <h3>Duplicate "${sourcePlan}"</h3>
+        <p class="plan-editor-hint">Copies every meal, food and setting. Useful for building
+        a variant — say a shift-day version — without starting over.</p>
+        <div class="calc-field">
+          <label>New plan name</label>
+          <input type="text" id="dupPlanName" placeholder="e.g. Shift Days">
+        </div>
+        <div class="calc-field">
+          <label>Description (optional)</label>
+          <input type="text" id="dupPlanDesc" placeholder="e.g. For night shifts">
+        </div>
+        <button class="full" id="dupConfirmBtn">Duplicate Plan</button>
+        <div class="checkin-form-msg" id="dupMsg"></div>
+      </div>`;
+  }
+
+  async function duplicatePlan(sourcePlan) {
+    const msg = document.getElementById("dupMsg");
+    function show(text, isError) {
+      msg.textContent = text;
+      msg.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    const newName = document.getElementById("dupPlanName").value.trim();
+    if (!newName) { show("Give the new plan a name.", true); return; }
+
+    const btn = document.getElementById("dupConfirmBtn");
+    btn.disabled = true;
+    btn.textContent = "Duplicating...";
+    showLoading("Duplicating plan...");
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "duplicateMealPlan",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          sourcePlan: sourcePlan,
+          newPlan: newName,
+          description: document.getElementById("dupPlanDesc").value.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.error) { show(data.error, true); return; }
+
+      const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+      const refreshed = await (await fetch(url)).json();
+      if (!refreshed.error) clientData = refreshed;
+
+      rerenderMealEditor();
+    } catch (err) {
+      show("Couldn't duplicate — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Duplicate Plan";
+      hideLoading();
+    }
+  }
+
+  // ---------- Creating a meal plan ----------
+  // A plan needs a name, a meal split and a training window before food can
+  // be added — the split defines which meal slots exist. Asking for all
+  // three up front avoids the dead end of a plan with nowhere to put food.
+  function buildCreatePlanForm() {
+    return `
+      <div class="chart-card create-plan-card">
+        <h3>New meal plan</h3>
+        <div class="calc-field">
+          <label>Plan name</label>
+          <input type="text" id="newPlanName" placeholder="e.g. Standard, Shift Days">
+        </div>
+        <div class="calc-row">
+          <div class="calc-field">
+            <label>Meal split</label>
+            <select id="newPlanConfig">
+              ${MEAL_CONFIG_OPTIONS.map(o =>
+                `<option${o === "4M2S" ? " selected" : ""}>${o}</option>`).join("")}
+            </select>
+          </div>
+          <div class="calc-field">
+            <label>Training time</label>
+            <select id="newPlanWindow">
+              ${TRAINING_WINDOW_OPTIONS.map(o =>
+                `<option${o === "Mid Afternoon" ? " selected" : ""}>${o}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <div class="calc-field">
+          <label>Description (optional)</label>
+          <input type="text" id="newPlanDesc" placeholder="e.g. For night shifts">
+        </div>
+        <button class="full" id="createPlanBtn">Create Plan</button>
+        <div class="checkin-form-msg" id="createPlanMsg"></div>
+      </div>`;
+  }
+
+  function wireCreatePlanForm() {
+    const btn = document.getElementById("createPlanBtn");
+    if (btn) btn.onclick = createMealPlan;
+  }
+
+  async function createMealPlan() {
+    const msg = document.getElementById("createPlanMsg");
+    function show(text, isError) {
+      msg.textContent = text;
+      msg.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    const name = document.getElementById("newPlanName").value.trim();
+    if (!name) { show("Give the plan a name.", true); return; }
+
+    const existing = (clientData.mealPlanMeta || []).some(m => (m["Plan Name"] || "") === name);
+    if (existing) { show(`This client already has a plan called "${name}".`, true); return; }
+
+    const btn = document.getElementById("createPlanBtn");
+    btn.disabled = true;
+    btn.textContent = "Creating...";
+    showLoading("Creating plan...");
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "createMealPlan",
+          email: currentEmail,
+          passcode: currentPasscode,
+          client: clientData.client,
+          planName: name,
+          config: document.getElementById("newPlanConfig").value,
+          trainingWindow: document.getElementById("newPlanWindow").value,
+          description: document.getElementById("newPlanDesc").value.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.error) { show(data.error, true); return; }
+
+      const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+      const refreshed = await (await fetch(url)).json();
+      if (!refreshed.error) clientData = refreshed;
+
+      // Drop straight into editing the new plan — there's nothing to view yet
+      startMealEdit(name);
+      rerenderMealEditor();
+    } catch (err) {
+      show("Couldn't create the plan — check your connection and try again.", true);
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Create Plan";
+      hideLoading();
+    }
+  }
+
   // ---------- Meal plan editing (coach only) ----------
   // Edits are held in memory while the coach works, then saved back as a
   // whole-plan replacement. Keeps the sheet as the source of truth without
@@ -4367,7 +4763,16 @@
     const allMeta = clientData.mealPlanMeta || [];
 
     if (!allPlans.length) {
-      content.innerHTML = `<div class="chart-empty">No meal plan set up yet.</div>`;
+      // No plan exists yet. Coaches get a create flow; clients just see
+      // that nothing's been set up.
+      if (!isAdminView) {
+        content.innerHTML = `<div class="chart-empty">No meal plan set up yet.</div>`;
+        return;
+      }
+      content.innerHTML = `
+        <div class="chart-empty">No meal plan yet for this client.</div>
+        ${buildCreatePlanForm()}`;
+      wireCreatePlanForm();
       return;
     }
 
@@ -4378,13 +4783,25 @@
     });
 
     let html = "";
-    if (planNames.length > 1) {
-      html += `<select id="mealPlanSelect">` +
-        planNames.map(n => `<option value="${n}">${n}</option>`).join("") +
-        `</select>`;
+    if (planNames.length > 1 || isAdminView) {
+      html += `<div class="plan-selector-row">
+        <select id="mealPlanSelect">` +
+          planNames.map(n => `<option value="${n}">${n}</option>`).join("") +
+        `</select>
+        ${isAdminView ? `<button class="plan-new-btn" id="mealNewPlanBtn" title="New plan">+</button>` : ""}
+      </div>`;
     }
-    html += `<div id="mealPlanContent"></div>`;
+    html += `<div id="createPlanWrap"></div><div id="mealPlanContent"></div>`;
     content.innerHTML = html;
+
+    const newBtn = document.getElementById("mealNewPlanBtn");
+    if (newBtn) {
+      newBtn.onclick = () => {
+        const wrap = document.getElementById("createPlanWrap");
+        wrap.innerHTML = wrap.innerHTML ? "" : buildCreatePlanForm();
+        if (wrap.innerHTML) wireCreatePlanForm();
+      };
+    }
 
     const renderPlan = (planName) => {
       const panel = document.getElementById("mealPlanContent");
@@ -4494,7 +4911,11 @@
       panel.innerHTML = `
         ${meta["Description"] ? `<p class="meal-desc">${meta["Description"]}</p>` : ""}
         ${buildMealConfigControls(planName, config, trainingWindow)}
-        ${isAdminView ? `<button class="full" id="mealEditBtn" style="margin-bottom:14px;">Edit Plan</button>` : ""}
+        ${isAdminView ? `<div class="plan-action-row">
+          <button class="plan-action-btn" id="mealEditBtn">Edit Plan</button>
+          <button class="plan-action-btn secondary" id="mealDuplicateBtn">Duplicate</button>
+        </div>
+        <div id="duplicateWrap"></div>` : ""}
 
         ${hasPrescribed ? `
         <div class="chart-card">
@@ -4520,8 +4941,22 @@
           ${missingFoods.length} item${missingFoods.length === 1 ? "" : "s"} couldn't be matched to the food database and aren't counted in the totals.
         </div>` : ""}
 
+        <button class="micro-toggle" id="microToggleBtn">Show micronutrients</button>
+        <div id="microPanel" style="display:none;"></div>
+
         ${mealBlocks.join("")}
       `;
+
+      const microBtn = document.getElementById("microToggleBtn");
+      if (microBtn) {
+        microBtn.onclick = () => {
+          const p = document.getElementById("microPanel");
+          const showing = p.style.display === "block";
+          p.style.display = showing ? "none" : "block";
+          microBtn.textContent = showing ? "Show micronutrients" : "Hide micronutrients";
+          if (!showing) renderMicronutrients(p, planName);
+        };
+      }
     };
 
     const renderAndWire = (name) => {
@@ -4534,6 +4969,14 @@
       wireMealConfigControls(renderAndWire);
       const editBtn = document.getElementById("mealEditBtn");
       if (editBtn) editBtn.onclick = () => { startMealEdit(name); renderAndWire(name); };
+      const dupBtn = document.getElementById("mealDuplicateBtn");
+      if (dupBtn) dupBtn.onclick = () => {
+        const wrap = document.getElementById("duplicateWrap");
+        wrap.innerHTML = wrap.innerHTML ? "" : buildDuplicateForm(name);
+        if (wrap.innerHTML) {
+          document.getElementById("dupConfirmBtn").onclick = () => duplicatePlan(name);
+        }
+      };
     };
     renderAndWire(planNames[0]);
     const sel = document.getElementById("mealPlanSelect");
