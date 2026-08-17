@@ -2191,8 +2191,12 @@
       return active !== "N";
     });
 
-    btn.style.display = hasPlan ? "flex" : "none";
-    if (!hasPlan) { panel.style.display = "none"; return; }
+    // Coaches always get the button — without it there's no way to create a
+    // first plan, since the create flow lives inside this panel. Clients only
+    // see it once a plan actually exists.
+    const showButton = hasPlan || isAdminView;
+    btn.style.display = showButton ? "flex" : "none";
+    if (!showButton) { panel.style.display = "none"; return; }
 
     btn.onclick = () => {
       renderMealPlanView(document.getElementById("mealPlanPanelContent"));
@@ -4762,8 +4766,21 @@
     });
     const allMeta = clientData.mealPlanMeta || [];
 
-    if (!allPlans.length) {
-      // No plan exists yet. Coaches get a create flow; clients just see
+    // Plan names come from both sources — a newly created plan has a meta
+    // row but no food rows yet, and it needs to stay selectable so food can
+    // actually be added to it.
+    const planNames = [];
+    allMeta.forEach(m => {
+      const n = m["Plan Name"];
+      if (n && !planNames.includes(n)) planNames.push(n);
+    });
+    allPlans.forEach(r => {
+      const n = r["Plan Name"] || "Plan";
+      if (!planNames.includes(n)) planNames.push(n);
+    });
+
+    if (!planNames.length) {
+      // Nothing at all yet. Coaches get a create flow; clients just see
       // that nothing's been set up.
       if (!isAdminView) {
         content.innerHTML = `<div class="chart-empty">No meal plan set up yet.</div>`;
@@ -4775,12 +4792,6 @@
       wireCreatePlanForm();
       return;
     }
-
-    const planNames = [];
-    allPlans.forEach(r => {
-      const n = r["Plan Name"] || "Plan";
-      if (!planNames.includes(n)) planNames.push(n);
-    });
 
     let html = "";
     if (planNames.length > 1 || isAdminView) {
@@ -4807,6 +4818,21 @@
       const panel = document.getElementById("mealPlanContent");
       const rows = allPlans.filter(r => (r["Plan Name"] || "Plan") === planName);
       const meta = allMeta.find(m => (m["Plan Name"] || "") === planName) || {};
+
+      // A newly created plan has settings but no food yet — say so plainly
+      // rather than rendering a page of empty meal blocks.
+      if (!rows.length) {
+        panel.innerHTML = `
+          ${meta["Description"] ? `<p class="meal-desc">${meta["Description"]}</p>` : ""}
+          ${buildMealConfigControls(planName, meta["Meal Config"], meta["Training Window"])}
+          <div class="chart-empty">No foods in this plan yet.</div>
+          ${isAdminView ? `<div class="plan-action-row">
+            <button class="plan-action-btn" id="mealEditBtn">Add Foods</button>
+            <button class="plan-action-btn secondary" id="mealDuplicateBtn">Duplicate</button>
+          </div>
+          <div id="duplicateWrap"></div>` : ""}`;
+        return;
+      }
 
       // Prescribed targets: the plan's own values, falling back to the
       // client's macrocycle targets for the current week.
