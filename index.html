@@ -465,6 +465,29 @@
   .micro-item.over-ul { border: 1px solid var(--flame); }
   .micro-item.over-ul .micro-pct { color: #e8927a; }
 
+
+  .omega-ratio {
+    background: var(--card2); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 12px;
+    border-left: 3px solid var(--border);
+  }
+  .omega-ratio.met { border-left-color: #7ab478; }
+  .omega-ratio.near { border-left-color: var(--accent); }
+  .omega-ratio.over { border-left-color: var(--flame); }
+  .or-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .or-label {
+    font-size: 10.5px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .or-value { font-size: 18px; font-weight: 700; color: var(--text); }
+  .omega-ratio.met .or-value { color: #7ab478; }
+  .omega-ratio.near .or-value { color: var(--accent); }
+  .omega-ratio.over .or-value { color: #e8927a; }
+  .or-note { font-size: 10px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
   .meal-config {
@@ -4413,16 +4436,38 @@
     { n: "Molybdenum", col: "Molybdenum (Mo) (ug)", u: "µg", m: 45, f: 45, ul: 2000, min: 0, max: 200 }
   ];
 
-  // Nutrients without an RDI row still get shown, just without a comparison
-  const EXTRA_NUTRIENTS = [
-    { n: "Fibre", col: "Total dietary fibre (g)", u: "g" },
-    { n: "Saturated fat", col: "Total saturated fatty acids (g)", u: "g" },
-    { n: "Monounsaturated", col: "Total monounsaturated fatty acids (g)", u: "g" },
-    { n: "Polyunsaturated", col: "Total polyunsaturated fatty acids (g)", u: "g" },
-    { n: "Omega-3", col: "Total Omega-3 (mg)", u: "mg" },
-    { n: "Cholesterol", col: "Cholesterol (mg)", u: "mg" },
-    { n: "Sugars", col: "Total sugars (g)", u: "g" }
+  // Fat targets are mostly expressed as a percentage of total daily energy
+  // rather than fixed grams, so they're calculated against the plan's own
+  // calories. kcalPerG converts the energy share back into grams.
+  //   type "pctTDE"  — low/high are % of total daily energy
+  //   type "range"   — low/high are absolute amounts in the stated unit
+  //   type "plain"   — no target, just show the number
+  const FAT_FIBRE_TARGETS = [
+    { n: "Saturated fat", col: "Total saturated fatty acids (g)", u: "g",
+      type: "pctTDE", high: 10, kcalPerG: 9, note: "under 10% of energy" },
+    { n: "Monounsaturated", col: "Total monounsaturated fatty acids (g)", u: "g",
+      type: "pctTDE", low: 15, high: 20, kcalPerG: 9, note: "15-20% of energy" },
+    { n: "Polyunsaturated (total)", col: "Total polyunsaturated fatty acids (g)", u: "g",
+      type: "plain" },
+    { n: "Omega-3", col: "Total Omega-3 (mg)", u: "mg",
+      type: "range", low: 250, high: 1000, note: "250mg-1g" },
+    { n: "Omega-6", col: "C18:2w6 (Linoleic Acid | Omega-6) (g)", u: "g",
+      type: "pctTDE", low: 4, high: 10, kcalPerG: 9, note: "4-10% of energy" },
+    // The 1%-of-energy figure is an upper limit rather than a target — the
+    // practical aim is as low as possible, so the note says so.
+    { n: "Trans fat", col: "Total trans fatty acids, imputed (mg)", u: "mg",
+      type: "pctTDE", high: 1, kcalPerG: 9, unitScale: 1000,
+      note: "limit is 1% of energy; aim as low as possible" },
+    { n: "Fibre", col: "Total dietary fibre (g)", u: "g",
+      type: "range", low: 25, high: 30, note: "25-30g" },
+    { n: "Cholesterol", col: "Cholesterol (mg)", u: "mg", type: "plain" },
+    { n: "Sugars", col: "Total sugars (g)", u: "g", type: "plain" }
   ];
+
+  // Omega-6:3 ratio — a lower ratio is generally associated with a less
+  // inflammatory fat profile. Shown as its own tile rather than a bar.
+  const OMEGA_RATIO_IDEAL = 4;   // at or below this reads as good
+  const OMEGA_RATIO_HIGH = 10;   // above this is flagged
 
   const MICRO_SECTIONS = [
     { title: "Vitamins", match: n => n.indexOf("Vitamin") === 0 || /B\d|Thiamin|Riboflavin|Niacin|Pantothenic|Pyridoxine|Biotin|Folate|Cobalamin/.test(n) },
@@ -4475,6 +4520,91 @@
     return `<div class="micro-bar"><div class="micro-bar-fill ${cls}" style="width:${width}%"></div></div>`;
   }
 
+
+  // Renders a fat or fibre row, resolving % of energy targets into grams
+  function renderFatItem(t, totals, planKcal) {
+    const actual = totals[t.col];
+    if (actual === undefined) return "";
+
+    const display = actual >= 100 ? Math.round(actual)
+                  : (actual >= 10 ? actual.toFixed(1) : actual.toFixed(2));
+
+    if (t.type === "plain") {
+      return `<div class="micro-item">
+          <div class="micro-label">${t.n}</div>
+          <div class="micro-value">${display}<span>${t.u}</span></div>
+        </div>`;
+    }
+
+    let low = null, high = null;
+    if (t.type === "pctTDE") {
+      if (!planKcal) {
+        // Without calories there's nothing to take a percentage of
+        return `<div class="micro-item">
+            <div class="micro-label">${t.n}</div>
+            <div class="micro-value">${display}<span>${t.u}</span></div>
+            <div class="micro-pct">Target ${t.note} — needs plan calories</div>
+          </div>`;
+      }
+      const scale = t.unitScale || 1;   // trans fat is stored in mg
+      if (t.low !== undefined) low = (planKcal * t.low / 100) / t.kcalPerG * scale;
+      if (t.high !== undefined) high = (planKcal * t.high / 100) / t.kcalPerG * scale;
+    } else {
+      low = t.low !== undefined ? t.low : null;
+      high = t.high !== undefined ? t.high : null;
+    }
+
+    // A ceiling-only target (saturated, trans) is good when under it.
+    // A range is good when inside it.
+    let cls, verdict;
+    if (low === null) {
+      cls = actual <= high ? "met" : "over";
+      verdict = actual <= high ? "within target" : "above target";
+    } else if (actual < low) {
+      cls = "low"; verdict = "below target";
+    } else if (actual > high) {
+      cls = "over"; verdict = "above target";
+    } else {
+      cls = "met"; verdict = "within target";
+    }
+
+    const fmt = v => v >= 100 ? Math.round(v) : v.toFixed(1);
+    const rangeText = low === null ? `under ${fmt(high)}${t.u}`
+                                   : `${fmt(low)}-${fmt(high)}${t.u}`;
+    const barPct = high ? Math.min((actual / high) * 100, 100) : 0;
+
+    return `<div class="micro-item${cls === "over" ? " over-ul" : ""}">
+        <div class="micro-label">${t.n}</div>
+        <div class="micro-value">${display}<span>${t.u}</span></div>
+        <div class="micro-bar"><div class="micro-bar-fill ${cls}" style="width:${barPct}%"></div></div>
+        <div class="micro-pct">${verdict} · ${rangeText}${t.note ? ` (${t.note})` : ""}</div>
+      </div>`;
+  }
+
+  // Omega-6:3 ratio. Omega-6 is in grams, omega-3 in milligrams, so the
+  // units need aligning before dividing.
+  function renderOmegaRatio(totals) {
+    const o6g = totals["C18:2w6 (Linoleic Acid | Omega-6) (g)"];
+    const o3mg = totals["Total Omega-3 (mg)"];
+    if (!o6g || !o3mg) return "";
+
+    const ratio = (o6g * 1000) / o3mg;
+    let cls = "met", verdict = "well balanced";
+    if (ratio > OMEGA_RATIO_HIGH) { cls = "over"; verdict = "high — more omega-6 relative to omega-3"; }
+    else if (ratio > OMEGA_RATIO_IDEAL) { cls = "near"; verdict = "moderate"; }
+
+    const barPct = Math.min((ratio / OMEGA_RATIO_HIGH) * 100, 100);
+    return `<div class="omega-ratio ${cls}">
+        <div class="or-head">
+          <span class="or-label">Omega-6 : Omega-3</span>
+          <span class="or-value">${ratio.toFixed(1)} : 1</span>
+        </div>
+        <div class="micro-bar"><div class="micro-bar-fill ${cls}" style="width:${barPct}%"></div></div>
+        <div class="or-note">${verdict} · lower ratios are generally associated with a
+        less inflammatory fat profile. Around ${OMEGA_RATIO_IDEAL}:1 or below is a common target.</div>
+      </div>`;
+  }
+
   async function renderMicronutrients(container, planName) {
     const rows = (clientData.mealPlans || []).filter(r => {
       const active = String(r["Active"] || "Y").trim().toUpperCase();
@@ -4500,7 +4630,7 @@
     // Sum each nutrient across the plan, scaling by quantity
     const totals = {};
     let unmatched = 0;
-    const allCols = RDI_TABLE.map(r => r.col).concat(EXTRA_NUTRIENTS.map(e => e.col));
+    const allCols = RDI_TABLE.map(r => r.col).concat(FAT_FIBRE_TARGETS.map(e => e.col));
     rows.forEach(r => {
       const detail = microCache[r["Food Name"]];
       if (!detail) { unmatched++; return; }
@@ -4509,6 +4639,9 @@
         const v = Number(detail[col]);
         if (!isNaN(v)) totals[col] = (totals[col] || 0) + v * factor;
       });
+      // Energy is stored in kJ; the % of energy targets need kcal
+      const kj = Number(detail["Energy w/ dietary fibre (kJ)"]);
+      if (!isNaN(kj)) totals["__kcal"] = (totals["__kcal"] || 0) + (kj / 4.184) * factor;
     });
 
     const sex = clientData.sex;
@@ -4557,9 +4690,16 @@
       html += `<div class="chart-card"><h3>${section.title}</h3><div class="micro-grid">${rendered}</div></div>`;
     });
 
-    const extras = EXTRA_NUTRIENTS.map(e => renderItem(e.n, e.col, e.u, false)).filter(Boolean).join("");
-    if (extras) {
-      html += `<div class="chart-card"><h3>Fats &amp; fibre</h3><div class="micro-grid">${extras}</div></div>`;
+    // Fats and fibre — targets are calculated against the plan's calories
+    const planKcal = totals["__kcal"] || 0;
+    const fatItems = FAT_FIBRE_TARGETS.map(t => renderFatItem(t, totals, planKcal))
+      .filter(Boolean).join("");
+    const ratioTile = renderOmegaRatio(totals);
+    if (fatItems || ratioTile) {
+      html += `<div class="chart-card"><h3>Fats &amp; fibre</h3>
+        ${ratioTile}
+        <div class="micro-grid">${fatItems}</div>
+      </div>`;
     }
 
     if (!html) {
