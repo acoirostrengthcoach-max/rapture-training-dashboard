@@ -187,10 +187,6 @@
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
   }
-  .placeholder-panel {
-    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 40px 20px; text-align: center; color: var(--muted); font-size: 14px;
-  }
 
   .block-chip-row {
     display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
@@ -1688,7 +1684,7 @@
 
       <div id="deloadWarnings"></div>
 
-      <button class="full" id="planEditBtn" style="margin-bottom:16px; display:none;">Edit a Range of Weeks</button>
+      <button class="full" id="planEditBtn" style="margin-bottom:16px; display:none;">Edit Week Range</button>
 
       <div id="planCopyPanel" style="display:none;">
         <div class="chart-card">
@@ -1876,6 +1872,9 @@
       const calcPanel = document.getElementById("calcPanel");
       if ((mealPanel && mealPanel.style.display === "block") ||
           (calcPanel && calcPanel.style.display === "block")) {
+        if (hasUnsavedMealEdits() &&
+            !confirm("You have unsaved changes to this meal plan. Leave anyway?")) return;
+        cancelMealEdit();
         if (mealPanel) mealPanel.style.display = "none";
         if (calcPanel) calcPanel.style.display = "none";
         setDashboardSectionsVisible(true);
@@ -2270,6 +2269,9 @@
     };
 
     closeBtn.onclick = () => {
+      if (hasUnsavedMealEdits() &&
+          !confirm("You have unsaved changes to this meal plan. Leave anyway?")) return;
+      cancelMealEdit();
       panel.style.display = "none";
       setDashboardSectionsVisible(true);
     };
@@ -2283,20 +2285,32 @@
     document.querySelectorAll(".tab-panel").forEach(p => {
       p.style.display = visible ? "" : "none";
     });
+    // Sections that are permanently hidden for nutrition-only clients must
+    // stay hidden when panels close, rather than being restored here.
+    const alwaysHidden = isNutritionOnlyClient();
+
     const scorecard = document.getElementById("scorecard");
-    if (scorecard && clientData.clientType !== "Nutrition Only") {
+    if (scorecard && !alwaysHidden) {
       scorecard.style.display = visible ? "" : "none";
     }
     // The speciality row sits between the scorecard and tabs — without this
     // it drops to the bottom of the meal plan panel when the rest hides.
     const speciality = document.querySelector(".speciality-row");
-    if (speciality) speciality.style.display = visible ? "" : "none";
+    if (speciality) {
+      speciality.style.display = (visible && !alwaysHidden) ? "" : "none";
+    }
   }
 
+  function isNutritionOnlyClient() {
+    return clientData.clientType === "Nutrition Only";
+  }
+
+  // Nutrition Only clients see the Plan, Check-Ins and Meal Plan sections.
+  // Everything tied to training blocks — the four training tabs, lifetime
+  // training stats, and training-specific check-in fields — is hidden,
+  // since none of it will ever have data for them.
   function configureUiForClientType() {
-    const isNutritionOnly = clientData.clientType === "Nutrition Only";
-    // Planner stays available to Nutrition Only clients — nutrition phases,
-    // macro targets and competition dates are all still relevant to them.
+    const isNutritionOnly = isNutritionOnlyClient();
     const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory"];
 
     document.querySelectorAll(".tab").forEach(tab => {
@@ -2305,16 +2319,56 @@
       }
     });
 
+    // Lifetime training stats and the volume-as-animals widget both read
+    // from training data, so neither means anything without it.
     document.getElementById("scorecard").style.display = isNutritionOnly ? "none" : "flex";
     document.getElementById("animalWidget").style.display = isNutritionOnly ? "none" : "block";
 
+    // Speciality is a training descriptor
+    const specialityRow = document.querySelector(".speciality-row");
+    if (specialityRow) specialityRow.style.display = isNutritionOnly ? "none" : "";
+
+    // The current-block banner belongs to a training tab that's now hidden,
+    // but hide it explicitly so it can't reappear.
+    const planBanner = document.getElementById("currentPlanBanner");
+    if (isNutritionOnly && planBanner) planBanner.style.display = "none";
+
+    configureCheckinFormForClientType(isNutritionOnly);
+
     if (isNutritionOnly) {
-      // Force Check-Ins to be the only active tab/panel
+      // Land on Check-Ins, since the default Current Block tab is gone
       document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
       document.querySelector('.tab[data-tab="checkins"]').classList.add("active");
       document.getElementById("panel-checkins").classList.add("active");
     }
+  }
+
+  // Training-specific check-in fields. A nutrition-only client has no
+  // programmed sessions, so asking for workout intensity or training energy
+  // just adds friction to their daily log.
+  const TRAINING_CHECKIN_FIELDS = [
+    "ciWorkoutType", "ciWorkoutCustom", "ciLissType",
+    "ciLissDuration", "ciLissCustom", "ciTrainingEnergy"
+  ];
+
+  function configureCheckinFormForClientType(isNutritionOnly) {
+    TRAINING_CHECKIN_FIELDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // Hide the whole field, not just the input
+      const field = el.closest(".form-field");
+      if (field) field.style.display = isNutritionOnly ? "none" : "";
+    });
+
+    // The Expenditure section still holds steps and NEAT, which do apply,
+    // so it stays — but rename it since it's no longer workout-focused.
+    const sections = document.querySelectorAll(".checkin-form-section h3");
+    sections.forEach(h => {
+      if (h.textContent.trim() === "Expenditure" || h.textContent.trim() === "Daily Movement") {
+        h.textContent = isNutritionOnly ? "Daily Movement" : "Expenditure";
+      }
+    });
   }
 
   function renderDashboard() {
@@ -3124,7 +3178,7 @@
       const blockColour = optionColours[blockType];
       const nutColour = optionColours[nutritionPhase];
 
-      const isNutritionOnly = clientData.clientType === "Nutrition Only";
+      const isNutritionOnly = isNutritionOnlyClient();
       const actual = (!isNutritionOnly && weekStart <= today) ? getActualTrainingForWeek(weekStart) : null;
 
       const hasDetail = row["Macrocycle Phase"] || row["Mesocycle Phase"] || row["Programming Type"] ||
@@ -3389,11 +3443,17 @@
   }
 
   async function refreshPlannerData(planStart) {
-    const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
-    const refreshed = await (await fetch(url)).json();
-    if (!refreshed.error) {
-      clientData = refreshed;
-      renderPlannerForYear(planStart);
+    // Called after a successful save, so a failure here means the data is
+    // saved but the view is stale — worth logging rather than swallowing.
+    try {
+      const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientData.client)}`;
+      const refreshed = await (await fetch(url)).json();
+      if (!refreshed.error) {
+        clientData = refreshed;
+        renderPlannerForYear(planStart);
+      }
+    } catch (err) {
+      console.error("Saved, but couldn't refresh the planner view:", err);
     }
   }
 
@@ -3599,7 +3659,7 @@
     const container = document.getElementById("deloadWarnings");
 
     // Deload spacing is a training concern — not relevant to nutrition-only clients
-    if (clientData.clientType === "Nutrition Only") { container.innerHTML = ""; return; }
+    if (isNutritionOnlyClient()) { container.innerHTML = ""; return; }
     const planByWeek = {};
     (clientData.macrocyclePlan || []).forEach(r => {
       if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
@@ -4269,7 +4329,7 @@
   // numbers to their standard one.
   function buildTargetOverride(planName, prescribed) {
     return `
-      <button class="target-toggle" id="targetToggleBtn">Adjust targets</button>
+      <button class="target-toggle" id="targetToggleBtn">Adjust Targets</button>
       <div id="targetOverride" style="display:none;">
         <p class="plan-editor-hint">These are this plan's own targets. Leave a field
         blank to fall back to the client's macrocycle targets for the current week.</p>
@@ -4308,7 +4368,7 @@
       const box = document.getElementById("targetOverride");
       const showing = box.style.display === "block";
       box.style.display = showing ? "none" : "block";
-      toggle.textContent = showing ? "Adjust targets" : "Hide targets";
+      toggle.textContent = showing ? "Adjust Targets" : "Hide Targets";
       if (!showing) updateTargetCalories();
     };
 
@@ -4322,13 +4382,16 @@
   }
 
   function updateTargetCalories() {
-    const kcal = calcCaloriesFromMacros(
-      document.getElementById("tgtProtein").value,
-      document.getElementById("tgtFat").value,
-      document.getElementById("tgtCarbs").value
-    );
+    // These live in dynamically rendered markup, so bail out if the panel
+    // isn't currently on screen rather than throwing.
+    const p = document.getElementById("tgtProtein");
+    const f = document.getElementById("tgtFat");
+    const c = document.getElementById("tgtCarbs");
     const el = document.getElementById("tgtCalorieValue");
-    if (el) el.textContent = kcal ? `${kcal} kcal` : "— kcal";
+    if (!p || !f || !c || !el) return;
+
+    const kcal = calcCaloriesFromMacros(p.value, f.value, c.value);
+    el.textContent = kcal ? `${kcal} kcal` : "— kcal";
   }
 
   async function saveTargetOverride(planName, renderAndWire) {
@@ -4887,17 +4950,26 @@
       const active = String(r["Active"] || "Y").trim().toUpperCase();
       return active !== "N" && (r["Plan Name"] || "Plan") === planName;
     });
+    const items = rows.map(r => ({
+      meal: r["Meal"] || "",
+      mealOrder: Number(r["Meal Order"]) || 1,
+      foodName: r["Food Name"] || "",
+      category: (getFoodByName(r["Food Name"]) || {}).cls || "",
+      grams: Number(r["Quantity (g)"]) || 0,
+      notes: r["Notes"] || ""
+    }));
     mealEditState = {
       planName,
-      items: rows.map(r => ({
-        meal: r["Meal"] || "",
-        mealOrder: Number(r["Meal Order"]) || 1,
-        foodName: r["Food Name"] || "",
-        category: (getFoodByName(r["Food Name"]) || {}).cls || "",
-        grams: Number(r["Quantity (g)"]) || 0,
-        notes: r["Notes"] || ""
-      }))
+      items,
+      // Snapshot of the starting state, so we can tell whether the coach
+      // has actually changed anything before warning about losing work.
+      original: JSON.stringify(items)
     };
+  }
+
+  function hasUnsavedMealEdits() {
+    if (!mealEditState) return false;
+    return JSON.stringify(mealEditState.items) !== mealEditState.original;
   }
 
   function cancelMealEdit() { mealEditState = null; }
@@ -5039,7 +5111,7 @@
               ${compareRow("F", mealTotals.f, mealPrescribed.f)}
               ${compareRow("C", mealTotals.c, mealPrescribed.c)}
             </div>` : ""}
-          <button class="ei-add" data-meal="${escapeAttr(slot)}" data-order="${slotIdx + 1}">+ Add food</button>
+          <button class="ei-add" data-meal="${escapeAttr(slot)}" data-order="${slotIdx + 1}">+ Add Food</button>
         </div>`;
     });
 
@@ -5100,7 +5172,11 @@
     const saveBtn = document.getElementById("mealSaveBtn");
     const cancelBtn = document.getElementById("mealCancelBtn");
     if (saveBtn) saveBtn.onclick = () => saveMealPlanItems(planName);
-    if (cancelBtn) cancelBtn.onclick = () => { cancelMealEdit(); rerenderMealEditor(); };
+    if (cancelBtn) cancelBtn.onclick = () => {
+      if (hasUnsavedMealEdits() && !confirm("Discard your changes to this plan?")) return;
+      cancelMealEdit();
+      rerenderMealEditor();
+    };
   }
 
   function escapeAttr(s) {
@@ -5365,7 +5441,7 @@
           ${missingFoods.length} item${missingFoods.length === 1 ? "" : "s"} couldn't be matched to the food database and aren't counted in the totals.
         </div>` : ""}
 
-        <button class="micro-toggle" id="microToggleBtn">Show micronutrients</button>
+        <button class="micro-toggle" id="microToggleBtn">Show Micronutrients</button>
         <div id="microPanel" style="display:none;"></div>
 
         ${mealBlocks.join("")}
@@ -5377,7 +5453,7 @@
           const p = document.getElementById("microPanel");
           const showing = p.style.display === "block";
           p.style.display = showing ? "none" : "block";
-          microBtn.textContent = showing ? "Show micronutrients" : "Hide micronutrients";
+          microBtn.textContent = showing ? "Show Micronutrients" : "Hide Micronutrients";
           if (!showing) renderMicronutrients(p, planName);
         };
       }
@@ -5831,7 +5907,7 @@
       ) +
       group("Energy &amp; Mood",
         stat("Daily", latest["Daily Energy"], "/5", 1),
-        stat("Training", latest["Training Energy"], "/5", 1),
+        isNutritionOnlyClient() ? "" : stat("Training", latest["Training Energy"], "/5", 1),
         stat("Stress", latest["Stress"], "/5", 1),
         stat("Focus", latest["Focus"], "/5", 1),
         stat("Soreness", latest["Soreness"], "/5", 1)
@@ -5957,20 +6033,28 @@
       select.onchange = renderMeasurement;
       renderMeasurement();
     } else if (category === "expenditure") {
+      // Steps and NEAT apply to everyone; LISS cardio only to training clients
+      const showLiss = !isNutritionOnlyClient();
       content.innerHTML =
         `<div class="pr-row" id="expenditureMinMax"></div>` +
         scrollChart("checkinExpenditureChart", "Total expenditure") +
-        `<div class="pr-row" id="lissMinMax"></div>` +
-        scrollChart("checkinNeatLissChart", "NEAT &amp; LISS cardio");
+        (showLiss ? `<div class="pr-row" id="lissMinMax"></div>` : "") +
+        scrollChart("checkinNeatLissChart", showLiss ? "NEAT &amp; LISS cardio" : "NEAT");
       applyScrollWidth("checkinExpenditureChart", "checkinNeatLissChart");
       renderMinMaxTiles("expenditureMinMax", weeklyRows, "Total Expenditure", " kcal", 0, true, "Highest Expenditure", "Lowest Expenditure");
-      renderMinMaxTiles("lissMinMax", weeklyRows, "LISS Cardio", "", 0, false, "Highest LISS Cardio");
+      if (showLiss) {
+        renderMinMaxTiles("lissMinMax", weeklyRows, "LISS Cardio", "", 0, false, "Highest LISS Cardio");
+      }
       renderSingleLineChart("checkinExpenditureChart", labels,
         weeklyRows.map(r => roundTo(Number(r["Total Expenditure"]) || 0, 0)), "kcal");
-      renderMultiLineChart("checkinNeatLissChart", labels, [
-        { label: "NEAT", data: weeklyRows.map(r => roundTo(Number(r["NEAT"]) || 0, 0)), color: "#d4a24c" },
-        { label: "LISS Cardio", data: weeklyRows.map(r => roundTo(Number(r["LISS Cardio"]) || 0, 0)), color: "#b6402c" }
-      ]);
+
+      const movementSeries = [
+        { label: "NEAT", data: weeklyRows.map(r => roundTo(Number(r["NEAT"]) || 0, 0)), color: "#d4a24c" }
+      ];
+      if (showLiss) {
+        movementSeries.push({ label: "LISS Cardio", data: weeklyRows.map(r => roundTo(Number(r["LISS Cardio"]) || 0, 0)), color: "#b6402c" });
+      }
+      renderMultiLineChart("checkinNeatLissChart", labels, movementSeries);
     } else if (category === "sleep") {
       content.innerHTML =
         `<div class="pr-row" id="sleepMinMax"></div>` +
@@ -5989,10 +6073,14 @@
       applyScrollWidth("checkinEnergyChart", "checkinWellbeingChart");
       renderMinMaxTiles("energyMinMax", weeklyRows, "Daily Energy", "/5", 1, false, "Best Energy Week");
       renderMinMaxTiles("stressMinMax", weeklyRows, "Stress", "/5", 1, true, "Best Stress Score", "Toughest Week");
-      renderMultiLineChart("checkinEnergyChart", labels, [
-        { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" },
-        { label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" }
-      ]);
+      // Training energy only means something for clients who train
+      const energySeries = [
+        { label: "Daily Energy", data: weeklyRows.map(r => roundTo(Number(r["Daily Energy"]) || 0, 1)), color: "#d4a24c" }
+      ];
+      if (!isNutritionOnlyClient()) {
+        energySeries.push({ label: "Training Energy", data: weeklyRows.map(r => roundTo(Number(r["Training Energy"]) || 0, 1)), color: "#7aa2ff" });
+      }
+      renderMultiLineChart("checkinEnergyChart", labels, energySeries);
       renderMultiLineChart("checkinWellbeingChart", labels, [
         { label: "Stress", data: weeklyRows.map(r => roundTo(Number(r["Stress"]) || 0, 1)), color: "#b6402c" },
         { label: "Libido", data: weeklyRows.map(r => roundTo(Number(r["Libido"]) || 0, 1)), color: "#8a6a2f" },
