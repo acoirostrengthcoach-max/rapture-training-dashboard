@@ -527,14 +527,6 @@
   }
 
 
-  .kcal-note {
-    font-size: 10.5px; color: var(--muted); line-height: 1.55;
-    margin: 10px 0 0; padding: 9px 11px;
-    background: var(--card2); border-left: 2px solid var(--accent-dim);
-    border-radius: 6px;
-  }
-  .kcal-note b { color: var(--accent); }
-
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
   .meal-config {
@@ -5633,11 +5625,6 @@
             ${totalCol("Fat", actual.f, hasPrescribed ? prescribed.f : null, "g")}
             ${totalCol("Carbs", actual.c, hasPrescribed ? prescribed.c : null, "g")}
           </div>
-          ${Math.abs(actual.kcalDb - actual.kcal) >= 5 ? `
-            <p class="kcal-note">Calories above are calculated from macros (4/9/4).
-            Your food database lists <b>${Math.round(actual.kcalDb)} kcal</b> for these foods —
-            the difference is dietary fibre, which the database counts and the
-            macro calculation doesn't.</p>` : ""}
           ${isAdminView ? buildTargetOverride(planName, prescribed) : ""}
         </div>
 
