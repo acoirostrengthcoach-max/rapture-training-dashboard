@@ -484,6 +484,48 @@
   .omega-ratio.over .or-value { color: #e8927a; }
   .or-note { font-size: 10px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
 
+
+  /* ---------- Shopping list ---------- */
+  .panel-toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .panel-toggle-row .micro-toggle { flex: 1; margin-bottom: 0; }
+
+  .shopping-controls { display: flex; gap: 8px; margin-bottom: 14px; }
+  .shop-period {
+    flex: 1; background: var(--card2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px; font-size: 12px; font-weight: 600;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .shop-period.active {
+    background: var(--accent); color: #0a0908; border-color: var(--accent);
+  }
+  .shop-period:hover:not(.active) { color: var(--text); border-color: var(--accent-dim); background: var(--card2); }
+
+  .shopping-list { display: flex; flex-direction: column; }
+  .shop-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid rgba(42,36,28,0.5);
+    cursor: pointer; transition: opacity 0.15s ease;
+  }
+  .shop-item:last-child { border-bottom: none; }
+  .shop-item.checked { opacity: 0.4; }
+  .shop-item.checked .shop-name { text-decoration: line-through; }
+  .shop-check { width: auto; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+  .shop-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; }
+  .shop-meals {
+    display: block; font-size: 9.5px; color: var(--muted);
+    font-weight: 400; margin-top: 2px;
+  }
+  .shop-qty {
+    flex-shrink: 0; font-size: 13px; font-weight: 700;
+    color: var(--accent); white-space: nowrap;
+  }
+  .shopping-note {
+    font-size: 10.5px; color: var(--muted); line-height: 1.55;
+    background: var(--card2); border-left: 2px solid var(--accent-dim);
+    padding: 10px 12px; border-radius: 6px; margin-top: 4px;
+  }
+
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
   .meal-config {
@@ -2253,9 +2295,13 @@
     });
 
     // Coaches always get the button — without it there's no way to create a
-    // first plan, since the create flow lives inside this panel. Clients only
-    // see it once a plan actually exists.
-    const showButton = hasPlan || isAdminView;
+    // first plan, since the create flow lives inside this panel.
+    //
+    // Nutrition-only clients also get it regardless: their dashboard is
+    // mostly the meal plan, so hiding the button entirely would leave them
+    // with a near-empty page and no explanation. They see a "not set up yet"
+    // message instead, which is clearer than nothing.
+    const showButton = hasPlan || isAdminView || isNutritionOnlyClient();
     btn.style.display = showButton ? "flex" : "none";
     if (!showButton) { panel.style.display = "none"; return; }
 
@@ -4451,6 +4497,131 @@
     }
   }
 
+
+  // ---------- Shopping list ----------
+  // Aggregates every food across the plan's meals into a single quantity per
+  // item. Deliberately stays in the language of the food database rather than
+  // trying to guess retail products — "Chicken, breast, lean flesh, raw" is
+  // precise about what the macros describe, and mapping that to supermarket
+  // packs would be guesswork.
+
+  let shoppingMultiplier = 1;   // 1 = per day, 7 = per week
+
+  function formatShoppingQty(grams) {
+    // Above a kilo, kg reads better than four-digit gram figures
+    if (grams >= 1000) {
+      const kg = grams / 1000;
+      return `${kg >= 10 ? kg.toFixed(1) : kg.toFixed(2)} kg`;
+    }
+    return `${Math.round(grams)} g`;
+  }
+
+  function renderShoppingList(container, planName) {
+    const rows = (clientData.mealPlans || []).filter(r => {
+      const active = String(r["Active"] || "Y").trim().toUpperCase();
+      return active !== "N" && (r["Plan Name"] || "Plan") === planName;
+    });
+
+    if (!rows.length) {
+      container.innerHTML = `<div class="chart-empty">Add foods to the plan to build a shopping list.</div>`;
+      return;
+    }
+
+    // Same food appearing in several meals gets combined into one line
+    const combined = {};
+    let unmatched = 0;
+    rows.forEach(r => {
+      const name = r["Food Name"];
+      if (!name) return;
+      const grams = Number(r["Quantity (g)"]) || 0;
+      if (!grams) return;
+
+      const food = getFoodByName(name);
+      if (!food) unmatched++;
+
+      if (!combined[name]) {
+        combined[name] = {
+          name,
+          grams: 0,
+          category: food ? (food.cls || "Uncategorised") : "Not in database",
+          meals: []
+        };
+      }
+      combined[name].grams += grams;
+      const meal = r["Meal"];
+      if (meal && !combined[name].meals.includes(meal)) combined[name].meals.push(meal);
+    });
+
+    const items = Object.values(combined);
+    if (!items.length) {
+      container.innerHTML = `<div class="chart-empty">No quantities set yet.</div>`;
+      return;
+    }
+
+    // Group by the food database's own classification
+    const byCategory = {};
+    items.forEach(it => {
+      if (!byCategory[it.category]) byCategory[it.category] = [];
+      byCategory[it.category].push(it);
+    });
+    const categories = Object.keys(byCategory).sort((a, b) => {
+      // Unmatched items sink to the bottom
+      if (a === "Not in database") return 1;
+      if (b === "Not in database") return -1;
+      return a.localeCompare(b);
+    });
+
+    let html = `
+      <div class="shopping-controls">
+        <button class="shop-period${shoppingMultiplier === 1 ? " active" : ""}" data-mult="1">Per day</button>
+        <button class="shop-period${shoppingMultiplier === 7 ? " active" : ""}" data-mult="7">Per week</button>
+      </div>`;
+
+    if (unmatched) {
+      html += `<div class="meal-warning">${unmatched} item${unmatched === 1 ? "" : "s"} couldn't be
+        matched to the food database. ${unmatched === 1 ? "It's" : "They're"} still listed below,
+        grouped separately.</div>`;
+    }
+
+    categories.forEach(cat => {
+      const catItems = byCategory[cat].sort((a, b) => a.name.localeCompare(b.name));
+      html += `<div class="chart-card">
+        <h3>${cat}</h3>
+        <div class="shopping-list">`;
+      catItems.forEach(it => {
+        const qty = it.grams * shoppingMultiplier;
+        html += `
+          <label class="shop-item">
+            <input type="checkbox" class="shop-check">
+            <span class="shop-name">${it.name}<span class="shop-meals">${it.meals.join(" · ")}</span></span>
+            <span class="shop-qty">${formatShoppingQty(qty)}</span>
+          </label>`;
+      });
+      html += `</div></div>`;
+    });
+
+    const totalGrams = items.reduce((sum, it) => sum + it.grams, 0) * shoppingMultiplier;
+    html += `<p class="shopping-note">${items.length} item${items.length === 1 ? "" : "s"} ·
+      ${formatShoppingQty(totalGrams)} total ·
+      ${shoppingMultiplier === 7 ? "one week" : "one day"} of this plan.
+      Quantities are as-listed in the food database (raw or cooked as specified),
+      so allow for trimming and cooking loss where relevant.</p>`;
+
+    container.innerHTML = html;
+
+    container.querySelectorAll(".shop-period").forEach(btn => {
+      btn.onclick = () => {
+        shoppingMultiplier = Number(btn.dataset.mult);
+        renderShoppingList(container, planName);
+      };
+    });
+
+    // Ticking an item dims it, so it's clear what's already in the trolley
+    container.querySelectorAll(".shop-check").forEach(cb => {
+      cb.onchange = () => cb.closest(".shop-item").classList.toggle("checked", cb.checked);
+    });
+  }
+
   // ---------- Micronutrient panel ----------
   // The full 56-column nutrient data is only fetched for the foods actually
   // in a plan, keeping the login payload small.
@@ -5441,8 +5612,12 @@
           ${missingFoods.length} item${missingFoods.length === 1 ? "" : "s"} couldn't be matched to the food database and aren't counted in the totals.
         </div>` : ""}
 
-        <button class="micro-toggle" id="microToggleBtn">Show Micronutrients</button>
+        <div class="panel-toggle-row">
+          <button class="micro-toggle" id="microToggleBtn">Show Micronutrients</button>
+          <button class="micro-toggle" id="shoppingToggleBtn">Shopping List</button>
+        </div>
         <div id="microPanel" style="display:none;"></div>
+        <div id="shoppingPanel" style="display:none;"></div>
 
         ${mealBlocks.join("")}
       `;
@@ -5455,6 +5630,17 @@
           p.style.display = showing ? "none" : "block";
           microBtn.textContent = showing ? "Show Micronutrients" : "Hide Micronutrients";
           if (!showing) renderMicronutrients(p, planName);
+        };
+      }
+
+      const shopBtn = document.getElementById("shoppingToggleBtn");
+      if (shopBtn) {
+        shopBtn.onclick = () => {
+          const p = document.getElementById("shoppingPanel");
+          const showing = p.style.display === "block";
+          p.style.display = showing ? "none" : "block";
+          shopBtn.textContent = showing ? "Shopping List" : "Hide Shopping List";
+          if (!showing) renderShoppingList(p, planName);
         };
       }
     };
