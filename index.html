@@ -4351,6 +4351,17 @@
     return (clientData.foodDatabase || []).find(f => String(f.n).trim().toLowerCase() === target) || null;
   }
 
+  // Macros display to one decimal place. Rounding each item to whole grams
+  // compounds badly across a 30-item plan — a few tenths per item can shift
+  // the daily total by several grams, which then makes the prescribed-vs-
+  // actual comparison misleading. All arithmetic keeps full precision;
+  // only the display is rounded.
+  function fmtMacro(v) {
+    const n = Number(v) || 0;
+    // Drop a trailing .0 so whole numbers stay clean
+    return n % 1 === 0 ? String(n) : n.toFixed(1);
+  }
+
   // Food values are per 100g, so scale by quantity/100
   function macrosForItem(foodName, grams) {
     const food = getFoodByName(foodName);
@@ -5254,9 +5265,9 @@
             </div>
             ${m ? `<div class="ei-macros">
                 <span class="eim-kcal">${Math.round(m.kcal)} kcal</span>
-                <span class="eim-macro eim-p"><b>${Math.round(m.p)}</b>g protein</span>
-                <span class="eim-macro eim-f"><b>${Math.round(m.f)}</b>g fat</span>
-                <span class="eim-macro eim-c"><b>${Math.round(m.c)}</b>g carbs</span>
+                <span class="eim-macro eim-p"><b>${fmtMacro(m.p)}</b>g protein</span>
+                <span class="eim-macro eim-f"><b>${fmtMacro(m.f)}</b>g fat</span>
+                <span class="eim-macro eim-c"><b>${fmtMacro(m.c)}</b>g carbs</span>
               </div>`
                 : (it.foodName ? `<div class="ei-macros ei-unmatched">Not in database — check the spelling</div>` : "")}
           </div>`;
@@ -5548,9 +5559,9 @@
               <div class="mi-qty">${grams}g</div>
               <div class="mi-macros">
                 <span class="eim-kcal">${Math.round(m.kcal)} kcal</span>
-                <span class="eim-macro eim-p"><b>${Math.round(m.p)}</b>g protein</span>
-                <span class="eim-macro eim-f"><b>${Math.round(m.f)}</b>g fat</span>
-                <span class="eim-macro eim-c"><b>${Math.round(m.c)}</b>g carbs</span>
+                <span class="eim-macro eim-p"><b>${fmtMacro(m.p)}</b>g protein</span>
+                <span class="eim-macro eim-f"><b>${fmtMacro(m.f)}</b>g fat</span>
+                <span class="eim-macro eim-c"><b>${fmtMacro(m.c)}</b>g carbs</span>
               </div>
             </div>`;
         }).join("");
@@ -5687,33 +5698,35 @@
   }
 
   function totalCol(label, actual, prescribed, unit) {
-    const a = Math.round(actual);
+    // Calories stay whole; macros show a decimal. The difference is computed
+    // from the true values, not the rounded ones, so it can't drift.
+    const isKcal = label === "Calories";
+    const fmt = v => isKcal ? String(Math.round(v)) : fmtMacro(v);
+
     if (prescribed === null || !prescribed) {
       return `<div class="dt-col">
           <div class="dt-label">${label}</div>
-          <div class="dt-actual">${a}${unit}</div>
+          <div class="dt-actual">${fmt(actual)}${unit}</div>
         </div>`;
     }
-    const pr = Math.round(prescribed);
-    const diff = a - pr;
-    const tolerance = (label === "Calories") ? DAY_KCAL_TOLERANCE : DAY_MACRO_TOLERANCE;
+    const diff = actual - prescribed;
+    const tolerance = isKcal ? DAY_KCAL_TOLERANCE : DAY_MACRO_TOLERANCE;
     const cls = toleranceClass(diff, tolerance);
+    const diffText = isKcal ? String(Math.round(diff)) : fmtMacro(Math.abs(diff));
     return `<div class="dt-col">
         <div class="dt-label">${label}</div>
-        <div class="dt-actual ${cls}">${a}${unit}</div>
-        <div class="dt-target">of ${pr}${unit}</div>
-        <div class="dt-diff ${cls}">${diff >= 0 ? "+" : ""}${diff}${unit}</div>
+        <div class="dt-actual ${cls}">${fmt(actual)}${unit}</div>
+        <div class="dt-target">of ${fmt(prescribed)}${unit}</div>
+        <div class="dt-diff ${cls}">${diff >= 0 ? "+" : "-"}${isKcal ? Math.abs(Math.round(diff)) : diffText}${unit}</div>
       </div>`;
   }
 
   function compareRow(letter, actual, prescribed) {
-    const a = Math.round(actual);
-    const pr = Math.round(prescribed);
-    const diff = a - pr;
+    const diff = actual - prescribed;
     const cls = toleranceClass(diff, MEAL_MACRO_TOLERANCE);
     return `<span class="mc-item">
-        <b>${letter}</b> ${a}<span class="mc-target">/${pr}</span>
-        <span class="mc-diff ${cls}">${diff >= 0 ? "+" : ""}${diff}</span>
+        <b>${letter}</b> ${fmtMacro(actual)}<span class="mc-target">/${fmtMacro(prescribed)}</span>
+        <span class="mc-diff ${cls}">${diff >= 0 ? "+" : "-"}${fmtMacro(Math.abs(diff))}</span>
       </span>`;
   }
 
