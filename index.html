@@ -526,6 +526,15 @@
     padding: 10px 12px; border-radius: 6px; margin-top: 4px;
   }
 
+
+  .kcal-note {
+    font-size: 10.5px; color: var(--muted); line-height: 1.55;
+    margin: 10px 0 0; padding: 9px 11px;
+    background: var(--card2); border-left: 2px solid var(--accent-dim);
+    border-radius: 6px;
+  }
+  .kcal-note b { color: var(--accent); }
+
   /* ---------- Meal plan ---------- */
   .meal-desc { font-size: 12.5px; color: var(--muted); margin: 0 0 6px; font-style: italic; }
   .meal-config {
@@ -4367,11 +4376,19 @@
     const food = getFoodByName(foodName);
     if (!food) return null;
     const factor = (Number(grams) || 0) / 100;
+    const p = food.p * factor;
+    const f = food.f * factor;
+    const c = food.c * factor;
     return {
-      kcal: food.kcal * factor,
-      p: food.p * factor,
-      f: food.f * factor,
-      c: food.c * factor
+      // Calculated from macros using the standard 4/9/4 factors. This is
+      // what's compared against prescribed targets, since the calculator
+      // derives those the same way — comparing like with like.
+      kcal: p * 4 + f * 9 + c * 4,
+      // The database's own energy figure, from the "Energy w/ dietary fibre"
+      // column. It's higher because it counts fibre's contribution (~2 kcal/g),
+      // which 4/9/4 excludes. Kept for reference rather than comparison.
+      kcalDb: food.kcal * factor,
+      p, f, c
     };
   }
 
@@ -5532,12 +5549,12 @@
       }
 
       // Totals and per-meal figures
-      const actual = { kcal: 0, p: 0, f: 0, c: 0 };
+      const actual = { kcal: 0, kcalDb: 0, p: 0, f: 0, c: 0 };
       const missingFoods = [];
       const mealBlocks = [];
 
       mealOrder.forEach(meal => {
-        const mealActual = { kcal: 0, p: 0, f: 0, c: 0 };
+        const mealActual = { kcal: 0, kcalDb: 0, p: 0, f: 0, c: 0 };
         const itemsHtml = mealMap[meal].items.map(r => {
           const grams = Number(r["Quantity (g)"]) || 0;
           const m = macrosForItem(r["Food Name"], grams);
@@ -5552,7 +5569,7 @@
                 <div class="mi-qty">${grams}g</div>
               </div>`;
           }
-          mealActual.kcal += m.kcal; mealActual.p += m.p;
+          mealActual.kcal += m.kcal; mealActual.kcalDb += m.kcalDb; mealActual.p += m.p;
           mealActual.f += m.f; mealActual.c += m.c;
           return `<div class="meal-item">
               <div class="mi-name">${r["Food Name"]}${r["Notes"] ? `<span class="mi-note">${r["Notes"]}</span>` : ""}</div>
@@ -5566,7 +5583,7 @@
             </div>`;
         }).join("");
 
-        actual.kcal += mealActual.kcal; actual.p += mealActual.p;
+        actual.kcal += mealActual.kcal; actual.kcalDb += mealActual.kcalDb; actual.p += mealActual.p;
         actual.f += mealActual.f; actual.c += mealActual.c;
 
         // Per-meal prescribed figures come from the distribution percentages
@@ -5616,6 +5633,11 @@
             ${totalCol("Fat", actual.f, hasPrescribed ? prescribed.f : null, "g")}
             ${totalCol("Carbs", actual.c, hasPrescribed ? prescribed.c : null, "g")}
           </div>
+          ${Math.abs(actual.kcalDb - actual.kcal) >= 5 ? `
+            <p class="kcal-note">Calories above are calculated from macros (4/9/4).
+            Your food database lists <b>${Math.round(actual.kcalDb)} kcal</b> for these foods —
+            the difference is dietary fibre, which the database counts and the
+            macro calculation doesn't.</p>` : ""}
           ${isAdminView ? buildTargetOverride(planName, prescribed) : ""}
         </div>
 
