@@ -485,6 +485,91 @@
   .or-note { font-size: 10px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
 
 
+
+  /* ---------- Progress photos ---------- */
+  .photo-mode-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+  .photo-upload-row { display: flex; gap: 8px; }
+  .photo-upload-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 4px; cursor: pointer;
+    background: var(--card2); border: 1px dashed var(--accent-dim);
+    border-radius: 10px; padding: 14px 8px;
+    transition: border-color 0.15s ease;
+  }
+  .photo-upload-btn:hover { border-color: var(--accent); }
+  .photo-upload-btn input { display: none; }
+  .pub-icon { font-size: 20px; color: var(--accent); line-height: 1; }
+  .pub-label {
+    font-size: 10px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.4px;
+  }
+
+  .photo-session { display: flex; gap: 8px; }
+  .photo-slot {
+    flex: 1; position: relative; border-radius: 10px; overflow: hidden;
+    background: var(--card2); aspect-ratio: 3 / 4; cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .photo-slot:hover { opacity: 0.85; }
+  .photo-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-slot.empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; cursor: default; border: 1px dashed var(--border);
+  }
+  .photo-slot.empty span { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .photo-slot.empty small { font-size: 9px; color: var(--muted); opacity: 0.7; }
+  .photo-slot-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(10,9,8,0.85));
+    color: var(--text); font-size: 10px; font-weight: 600;
+    padding: 12px 6px 5px; text-align: center;
+  }
+  .photo-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; font-size: 10.5px; color: var(--muted); text-align: center; padding: 8px;
+  }
+
+  .compare-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+  .compare-controls .calc-field { margin-bottom: 0; }
+  .compare-shots { display: flex; gap: 6px; margin-bottom: 12px; }
+  .shot-tab {
+    flex: 1; background: var(--card2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 7px; font-size: 11.5px; font-weight: 600;
+  }
+  .shot-tab.active { background: var(--accent); color: #0a0908; border-color: var(--accent); }
+  .compare-pair { display: flex; gap: 8px; }
+  .compare-side { flex: 1; min-width: 0; }
+  .compare-date {
+    font-size: 10px; color: var(--muted); text-align: center;
+    margin-bottom: 5px; font-weight: 600;
+  }
+  .compare-img {
+    border-radius: 10px; overflow: hidden; background: var(--card2);
+    aspect-ratio: 3 / 4;
+  }
+  .compare-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .photo-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(10,9,8,0.96);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; padding: 20px;
+  }
+  .photo-overlay img {
+    max-width: 100%; max-height: 82vh; border-radius: 10px;
+    object-fit: contain;
+  }
+  .photo-overlay.loading img { opacity: 0; }
+  .photo-overlay-caption { font-size: 12px; color: var(--muted); }
+  .photo-overlay-close {
+    position: absolute; top: 14px; right: 16px;
+    background: transparent; border: none; color: var(--muted);
+    font-size: 34px; line-height: 1; padding: 4px 10px;
+  }
+  .photo-overlay-close:hover { color: var(--text); background: transparent; }
+
   /* ---------- Shopping list ---------- */
   .panel-toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
   .panel-toggle-row .micro-toggle { flex: 1; margin-bottom: 0; }
@@ -1505,6 +1590,10 @@
           <div class="checkin-tile-icon">🩸</div>
           <div class="checkin-tile-name">Bloods</div>
         </div>
+        <div class="checkin-tile" data-category="photos">
+          <div class="checkin-tile-icon">📷</div>
+          <div class="checkin-tile-name">Photos</div>
+        </div>
         <div class="checkin-tile" data-category="vitals">
           <div class="checkin-tile-icon">❤️</div>
           <div class="checkin-tile-name">Vitals</div>
@@ -1931,6 +2020,19 @@
       requestAnimationFrame(resizeAllCharts);
     });
   });
+
+  const photoOverlayEl = document.getElementById("photoOverlay");
+  if (photoOverlayEl) {
+    const closePhoto = () => { photoOverlayEl.style.display = "none"; };
+    document.getElementById("photoOverlayClose").onclick = closePhoto;
+    // Tapping the backdrop closes too, but not taps on the image itself
+    photoOverlayEl.addEventListener("click", e => {
+      if (e.target === photoOverlayEl) closePhoto();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && photoOverlayEl.style.display === "flex") closePhoto();
+    });
+  }
 
   window.addEventListener("resize", resizeAllCharts);
   window.addEventListener("orientationchange", () => setTimeout(resizeAllCharts, 200));
@@ -4518,6 +4620,318 @@
   }
 
 
+
+  // ---------- Progress photos ----------
+  // Full images live in Drive and are fetched only when viewed or compared.
+  // A small thumbnail is stored in the sheet so the gallery loads in one go.
+
+  const PHOTO_SHOT_TYPES = ["Front", "Side", "Back"];
+  const PHOTO_FULL_MAX = 1400;   // px on the long edge for the stored image
+  const PHOTO_THUMB_MAX = 220;   // px for the gallery thumbnail
+
+  let photoViewMode = "gallery";      // "gallery" or "compare"
+  let compareSlots = { left: null, right: null };
+  let fullPhotoCache = {};            // fileId -> data URL
+
+  // Resizes in the browser before upload — full-size phone photos are
+  // several megabytes, which is slow to send and pointless at display size.
+  function resizeImage(file, maxEdge, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Couldn't read that file"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("That file isn't a readable image"));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > height && width > maxEdge) {
+            height = Math.round(height * maxEdge / width); width = maxEdge;
+          } else if (height > maxEdge) {
+            width = Math.round(width * maxEdge / height); height = maxEdge;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function photoRows() {
+    return (clientData.progressPhotos || [])
+      .filter(r => r["File ID"] && parseDate(r["Date"]));
+  }
+
+  // Grouped by date, newest first — a "session" is all shots from one day
+  function photoSessions() {
+    const byDate = {};
+    photoRows().forEach(r => {
+      const d = parseDate(r["Date"]);
+      const key = formatDMY(d);
+      if (!byDate[key]) byDate[key] = { date: d, key, shots: {} };
+      byDate[key].shots[r["Shot Type"]] = r;
+    });
+    return Object.values(byDate).sort((a, b) => b.date - a.date);
+  }
+
+  async function getFullPhoto(fileId) {
+    if (fullPhotoCache[fileId]) return fullPhotoCache[fileId];
+    let url = `${API_URL}?email=${encodeURIComponent(currentEmail)}` +
+      `&passcode=${encodeURIComponent(currentPasscode)}` +
+      `&photoId=${encodeURIComponent(fileId)}`;
+    if (isAdminView) url += `&targetClient=${encodeURIComponent(clientData.client)}`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.error || !data.image) throw new Error(data.error || "Photo unavailable");
+    fullPhotoCache[fileId] = data.image;
+    return data.image;
+  }
+
+  function renderPhotosView(content) {
+    const sessions = photoSessions();
+
+    content.innerHTML = `
+      <div class="photo-mode-row">
+        <button class="shop-period${photoViewMode === "gallery" ? " active" : ""}" data-mode="gallery">Gallery</button>
+        <button class="shop-period${photoViewMode === "compare" ? " active" : ""}" data-mode="compare">Compare</button>
+      </div>
+      <div id="photoUploadWrap"></div>
+      <div id="photoBody"></div>`;
+
+    content.querySelectorAll(".shop-period").forEach(btn => {
+      btn.onclick = () => { photoViewMode = btn.dataset.mode; renderPhotosView(content); };
+    });
+
+    renderPhotoUpload(document.getElementById("photoUploadWrap"));
+
+    const body = document.getElementById("photoBody");
+    if (photoViewMode === "compare") renderPhotoCompare(body, sessions);
+    else renderPhotoGallery(body, sessions);
+  }
+
+  function renderPhotoUpload(container) {
+    const today = new Date().toISOString().split("T")[0];
+    container.innerHTML = `
+      <div class="chart-card">
+        <h3>Add photos</h3>
+        <div class="calc-field">
+          <label>Date</label>
+          <input type="date" id="photoDate" value="${today}">
+        </div>
+        <div class="photo-upload-row">
+          ${PHOTO_SHOT_TYPES.map(t => `
+            <label class="photo-upload-btn">
+              <input type="file" accept="image/*" data-shot="${t}" class="photo-input">
+              <span class="pub-icon">+</span>
+              <span class="pub-label">${t}</span>
+            </label>`).join("")}
+        </div>
+        <div class="checkin-form-msg" id="photoMsg"></div>
+      </div>`;
+
+    container.querySelectorAll(".photo-input").forEach(input => {
+      input.onchange = () => uploadPhoto(input);
+    });
+  }
+
+  async function uploadPhoto(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    const msg = document.getElementById("photoMsg");
+    const shot = input.dataset.shot;
+    const date = document.getElementById("photoDate").value;
+
+    function show(text, isError) {
+      msg.textContent = text;
+      msg.className = "checkin-form-msg " + (isError ? "error" : (text ? "success" : ""));
+    }
+
+    show(`Preparing ${shot.toLowerCase()} photo...`, false);
+    showLoading("Uploading photo...");
+
+    try {
+      const [full, thumb] = await Promise.all([
+        resizeImage(file, PHOTO_FULL_MAX, 0.82),
+        resizeImage(file, PHOTO_THUMB_MAX, 0.6)
+      ]);
+
+      const payload = {
+        action: "saveProgressPhoto",
+        email: currentEmail,
+        passcode: currentPasscode,
+        shotType: shot,
+        date: date,
+        image: full,
+        thumbnail: thumb
+      };
+      if (isAdminView) payload.client = clientData.client;
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.error) { show(data.error, true); return; }
+
+      await refreshPhotoData();
+      renderPhotosView(document.getElementById("checkinDetailContent"));
+    } catch (err) {
+      show(err.message || "Couldn't upload that photo.", true);
+      console.error(err);
+    } finally {
+      hideLoading();
+      input.value = "";   // let the same file be picked again if needed
+    }
+  }
+
+  async function refreshPhotoData() {
+    let url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}`;
+    if (isAdminView) url += `&targetClient=${encodeURIComponent(clientData.client)}`;
+    const refreshed = await (await fetch(url)).json();
+    if (!refreshed.error) clientData = refreshed;
+  }
+
+  function renderPhotoGallery(container, sessions) {
+    if (!sessions.length) {
+      container.innerHTML = `<div class="chart-empty">No progress photos yet. Add a front, side or back shot above.</div>`;
+      return;
+    }
+
+    container.innerHTML = sessions.map(s => `
+      <div class="chart-card">
+        <h3>${s.key}</h3>
+        <div class="photo-session">
+          ${PHOTO_SHOT_TYPES.map(t => {
+            const shot = s.shots[t];
+            if (!shot) {
+              return `<div class="photo-slot empty"><span>${t}</span><small>not taken</small></div>`;
+            }
+            const thumb = shot["Thumbnail"];
+            return `
+              <div class="photo-slot" data-file="${shot["File ID"]}" data-label="${t} · ${s.key}">
+                ${thumb ? `<img src="${thumb}" alt="${t}">`
+                        : `<div class="photo-placeholder">${t}</div>`}
+                <span class="photo-slot-label">${t}</span>
+              </div>`;
+          }).join("")}
+        </div>
+      </div>`).join("");
+
+    container.querySelectorAll(".photo-slot[data-file]").forEach(el => {
+      el.onclick = () => openPhotoFull(el.dataset.file, el.dataset.label);
+    });
+  }
+
+  async function openPhotoFull(fileId, label) {
+    const overlay = document.getElementById("photoOverlay");
+    const img = document.getElementById("photoOverlayImg");
+    const cap = document.getElementById("photoOverlayCaption");
+
+    cap.textContent = label;
+    img.src = "";
+    overlay.style.display = "flex";
+    overlay.classList.add("loading");
+
+    try {
+      img.src = await getFullPhoto(fileId);
+    } catch (err) {
+      cap.textContent = "Couldn't load that photo.";
+      console.error(err);
+    } finally {
+      overlay.classList.remove("loading");
+    }
+  }
+
+  function renderPhotoCompare(container, sessions) {
+    if (sessions.length < 2) {
+      container.innerHTML = `<div class="chart-empty">
+        You need photos from at least two different dates to compare.
+      </div>`;
+      return;
+    }
+
+    // Default to oldest vs newest, which is usually what you want to see
+    if (!compareSlots.left) compareSlots.left = sessions[sessions.length - 1].key;
+    if (!compareSlots.right) compareSlots.right = sessions[0].key;
+
+    const opts = (selected) => sessions
+      .map(s => `<option${s.key === selected ? " selected" : ""}>${s.key}</option>`).join("");
+
+    container.innerHTML = `
+      <div class="chart-card">
+        <div class="compare-controls">
+          <div class="calc-field">
+            <label>From</label>
+            <select id="compareLeft">${opts(compareSlots.left)}</select>
+          </div>
+          <div class="calc-field">
+            <label>To</label>
+            <select id="compareRight">${opts(compareSlots.right)}</select>
+          </div>
+        </div>
+        <div class="compare-shots">
+          ${PHOTO_SHOT_TYPES.map(t => `
+            <button class="shot-tab${t === "Front" ? " active" : ""}" data-shot="${t}">${t}</button>`).join("")}
+        </div>
+        <div class="compare-pair" id="comparePair"></div>
+      </div>`;
+
+    let activeShot = "Front";
+
+    const draw = async () => {
+      const pair = document.getElementById("comparePair");
+      const left = sessions.find(s => s.key === compareSlots.left);
+      const right = sessions.find(s => s.key === compareSlots.right);
+
+      pair.innerHTML = [["left", left], ["right", right]].map(([side, s]) => {
+        const shot = s && s.shots[activeShot];
+        return `<div class="compare-side">
+            <div class="compare-date">${s ? s.key : "—"}</div>
+            <div class="compare-img" id="compareImg_${side}">
+              ${shot ? `<img src="${shot["Thumbnail"] || ""}" alt="">`
+                     : `<div class="photo-placeholder">No ${activeShot.toLowerCase()} shot</div>`}
+            </div>
+          </div>`;
+      }).join("");
+
+      // Swap thumbnails for full images once they've loaded
+      for (const [side, s] of [["left", left], ["right", right]]) {
+        const shot = s && s.shots[activeShot];
+        if (!shot) continue;
+        try {
+          const full = await getFullPhoto(shot["File ID"]);
+          const holder = document.getElementById(`compareImg_${side}`);
+          if (holder) holder.innerHTML = `<img src="${full}" alt="${activeShot}">`;
+        } catch (err) {
+          console.error("Couldn't load comparison photo:", err);
+        }
+      }
+    };
+
+    container.querySelector("#compareLeft").onchange = e => {
+      compareSlots.left = e.target.value; draw();
+    };
+    container.querySelector("#compareRight").onchange = e => {
+      compareSlots.right = e.target.value; draw();
+    };
+    container.querySelectorAll(".shot-tab").forEach(btn => {
+      btn.onclick = () => {
+        container.querySelectorAll(".shot-tab").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeShot = btn.dataset.shot;
+        draw();
+      };
+    });
+
+    draw();
+  }
+
   // ---------- Shopping list ----------
   // Aggregates every food across the plan's meals into a single quantity per
   // item. Deliberately stays in the language of the food database rather than
@@ -6154,7 +6568,7 @@
   const CHECKIN_CATEGORY_TITLES = {
     nutrition: "Nutrition", measurements: "Measurements", expenditure: "Expenditure",
     sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion",
-    bloods: "Blood Markers", vitals: "Vitals"
+    bloods: "Blood Markers", vitals: "Vitals", photos: "Progress Photos"
   };
 
   function showCheckinDetail(category) {
@@ -6170,6 +6584,12 @@
     if (category === "bloods") {
       document.querySelector("#checkinDetail .block-sub").textContent = "Results by test date";
       renderBloodsView(content);
+      return;
+    }
+    // Photos come from Drive rather than the check-in summary
+    if (category === "photos") {
+      document.querySelector("#checkinDetail .block-sub").textContent = "Front, side and back over time";
+      renderPhotosView(content);
       return;
     }
     document.querySelector("#checkinDetail .block-sub").textContent = "Trend over every logged week";
@@ -6802,6 +7222,12 @@
     }
   }
 </script>
+
+<div id="photoOverlay" class="photo-overlay" style="display:none;">
+  <button class="photo-overlay-close" id="photoOverlayClose">×</button>
+  <img id="photoOverlayImg" alt="">
+  <div class="photo-overlay-caption" id="photoOverlayCaption"></div>
+</div>
 
 </body>
 </html>
