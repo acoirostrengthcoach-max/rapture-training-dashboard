@@ -564,11 +564,18 @@
   .photo-overlay.loading img { opacity: 0; }
   .photo-overlay-caption { font-size: 12px; color: var(--muted); }
   .photo-overlay-close {
-    position: absolute; top: 14px; right: 16px;
-    background: transparent; border: none; color: var(--muted);
-    font-size: 34px; line-height: 1; padding: 4px 10px;
+    position: absolute; top: 12px; right: 12px; z-index: 1;
+    width: 44px; height: 44px;              /* a comfortable thumb target */
+    display: flex; align-items: center; justify-content: center;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 50%; color: var(--text);
+    font-size: 26px; line-height: 1; padding: 0;
   }
-  .photo-overlay-close:hover { color: var(--text); background: transparent; }
+  .photo-overlay-close:hover { color: var(--accent); border-color: var(--accent-dim); background: var(--card); }
+  .photo-overlay-close:active { transform: scale(0.94); }
+  .photo-overlay-hint {
+    font-size: 10.5px; color: var(--muted); opacity: 0.7;
+  }
 
   /* ---------- Shopping list ---------- */
   .panel-toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
@@ -1879,6 +1886,13 @@
   </div>
 </div>
 
+<div id="photoOverlay" class="photo-overlay" style="display:none;">
+  <button class="photo-overlay-close" id="photoOverlayClose">×</button>
+  <img id="photoOverlayImg" alt="">
+  <div class="photo-overlay-caption" id="photoOverlayCaption"></div>
+  <div class="photo-overlay-hint">Tap anywhere outside the photo to close</div>
+</div>
+
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbw_VrKcXutc_k-glKMb11YRxNs8Eo96fHGP5JOv_DrEsE08spMClqG606a4otzao9YzoA/exec";
 
@@ -2021,18 +2035,38 @@
     });
   });
 
-  const photoOverlayEl = document.getElementById("photoOverlay");
-  if (photoOverlayEl) {
-    const closePhoto = () => { photoOverlayEl.style.display = "none"; };
-    document.getElementById("photoOverlayClose").onclick = closePhoto;
-    // Tapping the backdrop closes too, but not taps on the image itself
-    photoOverlayEl.addEventListener("click", e => {
-      if (e.target === photoOverlayEl) closePhoto();
-    });
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape" && photoOverlayEl.style.display === "flex") closePhoto();
-    });
+  function closePhotoOverlay() {
+    const el = document.getElementById("photoOverlay");
+    if (!el) return;
+    el.style.display = "none";
+    const img = document.getElementById("photoOverlayImg");
+    if (img) img.src = "";   // release the image rather than holding it in memory
   }
+
+  // Wired up defensively — the close button is the only way out of a
+  // fullscreen photo, so it's worth being certain it's attached.
+  (function wirePhotoOverlay() {
+    const overlay = document.getElementById("photoOverlay");
+    const closeBtn = document.getElementById("photoOverlayClose");
+    if (!overlay || !closeBtn) {
+      console.error("Photo overlay markup missing — close button won't work.");
+      return;
+    }
+
+    closeBtn.addEventListener("click", e => {
+      e.stopPropagation();
+      closePhotoOverlay();
+    });
+
+    // Tapping the backdrop closes too, but not taps on the image itself
+    overlay.addEventListener("click", e => {
+      if (e.target === overlay) closePhotoOverlay();
+    });
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closePhotoOverlay();
+    });
+  })();
 
   window.addEventListener("resize", resizeAllCharts);
   window.addEventListener("orientationchange", () => setTimeout(resizeAllCharts, 200));
@@ -7243,12 +7277,6 @@
     }
   }
 </script>
-
-<div id="photoOverlay" class="photo-overlay" style="display:none;">
-  <button class="photo-overlay-close" id="photoOverlayClose">×</button>
-  <img id="photoOverlayImg" alt="">
-  <div class="photo-overlay-caption" id="photoOverlayCaption"></div>
-</div>
 
 </body>
 </html>
