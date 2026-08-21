@@ -4626,8 +4626,12 @@
   // A small thumbnail is stored in the sheet so the gallery loads in one go.
 
   const PHOTO_SHOT_TYPES = ["Front", "Side", "Back"];
-  const PHOTO_FULL_MAX = 1400;   // px on the long edge for the stored image
-  const PHOTO_THUMB_MAX = 220;   // px for the gallery thumbnail
+  // 1000px is ample for viewing and comparing on a phone or laptop, and keeps
+  // the upload small — base64 inflates by a third, and oversized requests are
+  // the main cause of uploads failing outright.
+  const PHOTO_FULL_MAX = 1000;   // px on the long edge for the stored image
+  const PHOTO_THUMB_MAX = 200;   // px for the gallery thumbnail
+  const PHOTO_MAX_BYTES = 900000; // refuse to send beyond this, with a clear reason
 
   let photoViewMode = "gallery";      // "gallery" or "compare"
   let compareSlots = { left: null, right: null };
@@ -4755,10 +4759,22 @@
     showLoading("Uploading photo...");
 
     try {
-      const [full, thumb] = await Promise.all([
-        resizeImage(file, PHOTO_FULL_MAX, 0.82),
+      let [full, thumb] = await Promise.all([
+        resizeImage(file, PHOTO_FULL_MAX, 0.78),
         resizeImage(file, PHOTO_THUMB_MAX, 0.6)
       ]);
+
+      // Very detailed photos can still come out large — step the quality
+      // down rather than letting the request fail.
+      let attempt = 0;
+      while (full.length > PHOTO_MAX_BYTES && attempt < 3) {
+        attempt++;
+        full = await resizeImage(file, PHOTO_FULL_MAX - attempt * 200, 0.7 - attempt * 0.1);
+      }
+      if (full.length > PHOTO_MAX_BYTES) {
+        show("That image is too large to upload even after compression. Try a smaller photo.", true);
+        return;
+      }
 
       const payload = {
         action: "saveProgressPhoto",
@@ -4782,8 +4798,13 @@
       await refreshPhotoData();
       renderPhotosView(document.getElementById("checkinDetailContent"));
     } catch (err) {
-      show(err.message || "Couldn't upload that photo.", true);
-      console.error(err);
+      console.error("Photo upload failed:", err);
+      // "Failed to fetch" means the request never reached the server — most
+      // often the script's Drive permission hasn't been granted yet.
+      const isNetwork = /failed to fetch|networkerror|load failed/i.test(err.message || "");
+      show(isNetwork
+        ? "Couldn't reach the server. If this is the first photo upload, the script may still need Drive permission granted — run grantDriveAccess in the Apps Script editor."
+        : (err.message || "Couldn't upload that photo."), true);
     } finally {
       hideLoading();
       input.value = "";   // let the same file be picked again if needed
