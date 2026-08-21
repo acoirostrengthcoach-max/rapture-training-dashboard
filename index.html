@@ -486,6 +486,23 @@
 
 
 
+
+  .mh-entry {
+    display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+    font-size: 11.5px; padding: 4px 0; color: var(--muted);
+  }
+  .mh-badge {
+    font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;
+  }
+  .mh-badge.added { background: rgba(122,180,120,0.18); color: #7ab478; }
+  .mh-badge.removed { background: rgba(182,64,44,0.2); color: #e8927a; }
+  .mh-badge.changed { background: rgba(212,162,76,0.16); color: var(--accent); }
+  .mh-detail { flex: 1; min-width: 0; color: var(--text); }
+  .mh-values { flex-shrink: 0; }
+  .mh-values s { opacity: 0.55; }
+  .mh-values b { color: var(--accent); }
+
   /* ---------- Progress photos ---------- */
   .photo-mode-row { display: flex; gap: 8px; margin-bottom: 14px; }
 
@@ -5438,6 +5455,59 @@
     container.innerHTML = html;
   }
 
+
+  // Shows how a meal plan has evolved. Grouped by edit session, since one
+  // save typically produces several individual changes.
+  function buildMealHistory(planName) {
+    const rows = (clientData.mealPlanHistory || [])
+      .filter(r => (r["Plan Name"] || "") === planName)
+      .slice()
+      .reverse()
+      .slice(0, 80);   // recent history only; the sheet keeps everything
+
+    if (!rows.length) {
+      return `<div class="chart-card">
+          <h3>Plan history</h3>
+          <div class="chart-empty">No changes recorded for this plan yet.</div>
+        </div>`;
+    }
+
+    // Consecutive entries sharing a timestamp came from one save
+    const groups = [];
+    rows.forEach(r => {
+      const ts = r["Timestamp"];
+      const last = groups[groups.length - 1];
+      if (last && last.timestamp === ts) last.entries.push(r);
+      else groups.push({ timestamp: ts, entries: [r] });
+    });
+
+    const changeClass = (change) => {
+      const c = String(change).toLowerCase();
+      if (c === "added" || c.indexOf("created") !== -1 || c.indexOf("duplicated") !== -1) return "added";
+      if (c === "removed") return "removed";
+      return "changed";
+    };
+
+    return `<div class="chart-card">
+        <h3>Plan history</h3>
+        ${groups.map(g => `
+          <div class="ph-group">
+            <div class="ph-time">${g.timestamp}</div>
+            ${g.entries.map(e => `
+              <div class="mh-entry">
+                <span class="mh-badge ${changeClass(e["Change"])}">${e["Change"]}</span>
+                <span class="mh-detail">${e["Detail"] || ""}</span>
+                <span class="mh-values">${
+                  e["Old Value"] && e["New Value"]
+                    ? `<s>${e["Old Value"]}</s> → <b>${e["New Value"]}</b>`
+                    : (e["New Value"] ? `<b>${e["New Value"]}</b>`
+                                      : (e["Old Value"] ? `<s>${e["Old Value"]}</s>` : ""))
+                }</span>
+              </div>`).join("")}
+          </div>`).join("")}
+      </div>`;
+  }
+
   function buildDuplicateForm(sourcePlan) {
     return `
       <div class="chart-card create-plan-card">
@@ -6083,8 +6153,10 @@
         ${isAdminView ? `<div class="plan-action-row">
           <button class="plan-action-btn" id="mealEditBtn">Edit Plan</button>
           <button class="plan-action-btn secondary" id="mealDuplicateBtn">Duplicate</button>
+          <button class="plan-action-btn secondary" id="mealHistoryBtn">History</button>
         </div>
-        <div id="duplicateWrap"></div>` : ""}
+        <div id="duplicateWrap"></div>
+        <div id="mealHistoryWrap"></div>` : ""}
 
         <div class="chart-card">
           <h3>Daily totals</h3>
@@ -6145,6 +6217,12 @@
       const editBtn = document.getElementById("mealEditBtn");
       if (editBtn) editBtn.onclick = () => { startMealEdit(name); renderAndWire(name); };
       wireTargetOverride(name, renderAndWire);
+      const histBtn = document.getElementById("mealHistoryBtn");
+      if (histBtn) histBtn.onclick = () => {
+        const wrap = document.getElementById("mealHistoryWrap");
+        const showing = !!wrap.innerHTML;
+        wrap.innerHTML = showing ? "" : buildMealHistory(name);
+      };
       const dupBtn = document.getElementById("mealDuplicateBtn");
       if (dupBtn) dupBtn.onclick = () => {
         const wrap = document.getElementById("duplicateWrap");
