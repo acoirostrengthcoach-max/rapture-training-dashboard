@@ -6797,9 +6797,18 @@
       const renderMeasurement = () => {
         const field = select.value;
         const unit = measurementUnits[field] || "";
-        renderMinMaxTiles("measurementMinMax", weeklyRows, field, unit, 1, true, `Highest ${field}`, `Lowest ${field}`);
+        // Body fat is stored as a fraction (0.15) but reads as a percentage
+        const scale = (field === "Body Fat %") ? 100 : 1;
+        const scaled = scale === 1 ? weeklyRows : weeklyRows.map(r => {
+          const copy = Object.assign({}, r);
+          if (copy[field] !== "" && copy[field] !== undefined && copy[field] !== null) {
+            copy[field] = Number(copy[field]) * scale;
+          }
+          return copy;
+        });
+        renderMinMaxTiles("measurementMinMax", scaled, field, unit, 1, true, `Highest ${field}`, `Lowest ${field}`);
         renderSingleLineChart("checkinMeasurementChart", labels,
-          weeklyRows.map(r => (r[field] !== "" && r[field] !== undefined) ? roundTo(Number(r[field]), 1) : null), field);
+          scaled.map(r => (r[field] !== "" && r[field] !== undefined) ? roundTo(Number(r[field]), 1) : null), field);
       };
       select.onchange = renderMeasurement;
       renderMeasurement();
@@ -7111,7 +7120,7 @@
     ["ciRestingHR", "Resting HR"], ["ciSystolic", "Systolic"], ["ciDiastolic", "Diastolic"],
     ["ciStoolType", "Stool Type"], ["ciStoolColour", "Stool Colour"],
     ["ciWater", "Water"], ["ciHunger", "Hunger"],
-    ["ciWeight", "Weight"], ["ciBodyFat", "Body Fat %"],
+    ["ciWeight", "Weight"],
     ["ciBust", "Bust"], ["ciWaist", "Waist"], ["ciHips", "Hips"], ["ciThighs", "Thighs"], ["ciArms", "Arms"]
   ];
 
@@ -7167,6 +7176,12 @@
       }
     });
 
+    // Body fat is stored as a fraction but edited as a whole number
+    const bfStored = existing["Body Fat %"];
+    if (bfStored !== undefined && bfStored !== null && bfStored !== "") {
+      document.getElementById("ciBodyFat").value = roundTo(Number(bfStored) * 100, 1);
+    }
+
     // Sync the visible number next to each slider with its pre-filled value
     document.querySelectorAll(".rating-slider").forEach(slider => {
       document.getElementById(slider.id + "Val").textContent = slider.value;
@@ -7216,7 +7231,7 @@
     ciWater: [0, 20, "Water (L)"],
     ciSleepHours: [0, 24, "Sleep Hours"],
     ciWeight: [20, 400, "Weight (kg)"],
-    ciBodyFat: [0, 100, "Body Fat %"],
+    ciBodyFat: [1, 70, "Body Fat %"],   // entered as a whole number, e.g. 15
     ciBust: [0, 300, "Bust (cm)"],
     ciWaist: [0, 300, "Waist (cm)"],
     ciHips: [0, 300, "Hips (cm)"],
@@ -7302,7 +7317,13 @@
       water: document.getElementById("ciWater").value,
       hunger: document.getElementById("ciHunger").value,
       weight: document.getElementById("ciWeight").value,
-      bodyFat: document.getElementById("ciBodyFat").value,
+      // Stored as a decimal fraction (15% -> 0.15) to match how the sheet's
+      // percentage-formatted cells hold it. Without this, imported rows and
+      // app-entered rows would disagree, and write-back would land as 1500%.
+      bodyFat: (function () {
+        const v = document.getElementById("ciBodyFat").value;
+        return v === "" ? "" : Number(v) / 100;
+      })(),
       bust: document.getElementById("ciBust").value,
       waist: document.getElementById("ciWaist").value,
       hips: document.getElementById("ciHips").value,
