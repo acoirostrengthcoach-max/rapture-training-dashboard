@@ -1677,9 +1677,9 @@
           <label>Workout Intensity</label>
           <select id="ciWorkoutType">
             <option value="">—</option>
-            <option value="Low">Low</option>
-            <option value="Med">Medium</option>
-            <option value="High">High</option>
+            <option value="LOW">Low</option>
+            <option value="MED">Medium</option>
+            <option value="HIGH">High</option>
             <option value="custom">I know my exact kcal (e.g. from a smartwatch)</option>
           </select>
         </div>
@@ -1743,8 +1743,9 @@
           <label>Energy Crash Today?</label>
           <select id="ciEnergyCrash">
             <option value="">—</option>
-            <option value="Yes">Yes</option>
-            <option value="No">No</option>
+            <option>None</option>
+            <option>Post Lunch</option>
+            <option>Dinner</option>
           </select>
         </div>
       </div>
@@ -1754,7 +1755,16 @@
         <div class="form-grid">
           <div class="form-field">
             <label>Stool Type (1-7) <span class="macro-target" id="bristolToggle" style="cursor:pointer; text-decoration:underline;">What's this?</span></label>
-            <input type="number" min="1" max="7" id="ciStoolType">
+            <select id="ciStoolType">
+              <option value="">—</option>
+              <option>1. Hard Lumps</option>
+              <option>2. Lumpy Sausage</option>
+              <option>3. Sausage with Cracks</option>
+              <option>4. Smooth</option>
+              <option>5. Soft Blobs</option>
+              <option>6. Fluffy or Mushy</option>
+              <option>7. Watery</option>
+            </select>
           </div>
           <div id="bristolReference" class="bristol-reference" style="display:none;">
             <div class="bristol-row"><b>1</b> — Separate hard lumps (like nuts), hard to pass</div>
@@ -7164,8 +7174,9 @@
 
     // Workout Input is either Low/Med/High or a raw smartwatch number
     const workoutRaw = existing["Workout Input"];
-    if (workoutRaw === "Low" || workoutRaw === "Med" || workoutRaw === "High") {
-      document.getElementById("ciWorkoutType").value = workoutRaw;
+    const workoutUpper = String(workoutRaw || "").trim().toUpperCase();
+    if (workoutUpper === "LOW" || workoutUpper === "MED" || workoutUpper === "HIGH") {
+      document.getElementById("ciWorkoutType").value = workoutUpper;
       document.getElementById("ciWorkoutCustomWrap").style.display = "none";
     } else if (workoutRaw !== undefined && workoutRaw !== null && workoutRaw !== "") {
       document.getElementById("ciWorkoutType").value = "custom";
@@ -7211,7 +7222,6 @@
     ciHips: [0, 300, "Hips (cm)"],
     ciThighs: [0, 300, "Thighs (cm)"],
     ciArms: [0, 300, "Arms (cm)"],
-    ciStoolType: [1, 7, "Stool Type"],
     ciRestingHR: [25, 220, "Resting HR"],
     ciSystolic: [60, 260, "Systolic"],
     ciDiastolic: [30, 180, "Diastolic"]
