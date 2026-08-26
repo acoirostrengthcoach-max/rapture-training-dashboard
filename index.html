@@ -661,6 +661,23 @@
   }
   .ex-rpe-row input { max-width: 90px; }
 
+
+  .ex-cues { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 5px; }
+  .ex-cue { font-size: 10.5px; color: var(--muted); }
+  .ex-cue b {
+    color: var(--text); font-weight: 600; margin-right: 3px;
+    text-transform: uppercase; font-size: 9px; letter-spacing: 0.4px;
+  }
+  .check-row .set-check {
+    display: flex; align-items: center; gap: 7px; cursor: pointer;
+    font-size: 12px; color: var(--muted);
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 7px 9px;
+  }
+  .check-row .set-check input {
+    width: auto; margin: 0; accent-color: var(--accent); transform: scale(1.15);
+  }
+
   .ex-check-row { display: flex; align-items: center; gap: 12px; }
   .ex-check {
     display: flex; align-items: center; gap: 8px; cursor: pointer;
@@ -5376,40 +5393,64 @@
     const doneCount = day.exercises.filter(e => String(e["Logged"]).trim().toUpperCase() === "Y").length;
 
     const cards = day.exercises.map((ex, idx) => {
-      const logged = loggedFor(week.blockID, week.week, ex["Exercise"]);
-      const isDone = !!logged;
       const checkboxStyle = isCheckboxMovement(ex["Movement"]);
       const sets = setCountFor(ex);
       const link = ex["Link"] || "";
+
+      // Each set's recorded weight, straight from the sheet
+      const setWeights = [];
+      for (let s = 1; s <= 6; s++) {
+        const v = ex["Set " + s];
+        setWeights.push((v === "" || v === null || v === undefined) ? "" : v);
+      }
+      const anyLogged = setWeights.some(v => v !== "");
 
       const prescribedBits = [];
       if (ex["Sets"]) prescribedBits.push(`${ex["Sets"]} × ${ex["Reps"] || "?"}`);
       if (ex["Prescribed"]) prescribedBits.push(String(ex["Prescribed"]));
 
+      // Tempo and RIR are prescriptions too, so they belong next to the target
+      const cueBits = [];
+      if (ex["Tempo"]) cueBits.push(`<span class="ex-cue"><b>Tempo</b> ${ex["Tempo"]}</span>`);
+      if (ex["RIR"] !== "" && ex["RIR"] !== undefined && ex["RIR"] !== null) {
+        cueBits.push(`<span class="ex-cue"><b>RIR</b> ${ex["RIR"]}</span>`);
+      }
+
       let entry;
       if (checkboxStyle) {
+        // Ticked off set by set, with a weight field in case it's loaded
+        const rows = [];
+        for (let s = 1; s <= sets; s++) {
+          const w = setWeights[s - 1];
+          rows.push(`
+            <div class="set-row check-row">
+              <span class="set-num">${s}</span>
+              <label class="set-check">
+                <input type="checkbox" class="exi-done" data-ex="${idx}" data-set="${s}"${w !== "" ? " checked" : ""}>
+                <span>Done</span>
+              </label>
+              <input type="number" step="0.5" class="exi-weight" data-ex="${idx}" data-set="${s}"
+                     placeholder="kg" value="${w !== "" && Number(w) !== 1 ? roundTo(Number(w), 1) : ""}">
+            </div>`);
+        }
         entry = `
-          <div class="ex-check-row">
-            <label class="ex-check">
-              <input type="checkbox" class="exi-done" data-ex="${idx}"${isDone ? " checked" : ""}>
-              <span>Completed</span>
-            </label>
-            <div class="ex-check-weight">
-              <input type="number" step="0.5" class="exi-weight" data-ex="${idx}" data-set="1"
-                     placeholder="kg" value="${isDone && logged["Avg Weight"] > 1 ? roundTo(Number(logged["Avg Weight"]), 1) : ""}">
-              <span class="exi-unit">kg</span>
-            </div>
+          <div class="set-head">
+            <span class="set-num">Set</span>
+            <span>Completed</span>
+            <span>Weight</span>
           </div>
-          <p class="ex-check-hint">Leave the weight blank if it isn't loaded.</p>`;
+          <div class="set-rows">${rows.join("")}</div>
+          <p class="ex-check-hint">Leave the weight blank if the movement isn't loaded.</p>`;
       } else {
         const rows = [];
         for (let s = 1; s <= sets; s++) {
+          const w = setWeights[s - 1];
           rows.push(`
             <div class="set-row">
               <span class="set-num">${s}</span>
               <span class="set-reps">${ex["Reps"] || "—"}</span>
               <input type="number" step="0.5" class="exi-weight" data-ex="${idx}" data-set="${s}"
-                     placeholder="kg" value="${isDone && s === 1 && logged["Avg Weight"] ? roundTo(Number(logged["Avg Weight"]), 1) : ""}">
+                     placeholder="kg" value="${w !== "" ? roundTo(Number(w), 1) : ""}">
             </div>`);
         }
         entry = `
@@ -5422,12 +5463,12 @@
           <div class="ex-rpe-row">
             <label>RPE</label>
             <input type="number" step="0.5" min="1" max="10" class="exi-rpe" data-ex="${idx}"
-                   value="${isDone && logged["RPE"] ? roundTo(Number(logged["RPE"]), 1) : ""}">
+                   value="${ex["RPE"] !== "" && ex["RPE"] !== undefined && ex["RPE"] !== null ? roundTo(Number(ex["RPE"]), 1) : ""}">
           </div>`;
       }
 
       return `
-        <div class="ex-card${isDone ? " done" : ""}" data-ex="${idx}">
+        <div class="ex-card${anyLogged ? " done" : ""}" data-ex="${idx}">
           <div class="ex-card-head">
             <div class="ex-card-title">
               <div class="ex-name">${ex["Exercise"]}</div>
@@ -5438,8 +5479,11 @@
             </a>` : ""}
           </div>
           ${prescribedBits.length ? `<div class="ex-prescribed">${prescribedBits.join(" · ")}</div>` : ""}
+          ${cueBits.length ? `<div class="ex-cues">${cueBits.join("")}</div>` : ""}
           <div class="ex-entry">${entry}</div>
-          <input type="text" class="exi-note" data-ex="${idx}" placeholder="Notes — missed reps, how it felt...">
+          <input type="text" class="exi-note" data-ex="${idx}"
+                 placeholder="Notes — missed reps, how it felt..."
+                 value="${escapeAttr(ex["Notes"] || "")}">
         </div>`;
     }).join("");
 
