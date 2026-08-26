@@ -594,6 +594,52 @@
     font-size: 10.5px; color: var(--muted); opacity: 0.7;
   }
 
+
+  /* ---------- Training sessions ---------- */
+  .day-nav { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
+  .day-nav-btn {
+    flex-shrink: 0; width: 36px; height: 36px;
+    background: var(--card2); color: var(--accent);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 20px; line-height: 1; padding: 0;
+  }
+  .day-nav-btn:disabled { opacity: 0.3; color: var(--muted); }
+  .day-nav-btn:not(:disabled):hover { border-color: var(--accent-dim); background: var(--card2); }
+  .day-nav-tabs { display: flex; gap: 5px; flex: 1; }
+  .day-tab {
+    flex: 1; background: var(--card2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 4px; font-size: 13px; font-weight: 700;
+  }
+  .day-tab.active { background: var(--accent); color: #0a0908; border-color: var(--accent); }
+
+  .session-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 10px; margin-bottom: 12px;
+  }
+  .session-progress {
+    font-size: 10.5px; color: var(--muted); white-space: nowrap;
+  }
+  .session-rows { display: flex; flex-direction: column; }
+  .ex-row {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 0; border-bottom: 1px solid rgba(42,36,28,0.5);
+  }
+  .ex-row:last-child { border-bottom: none; }
+  .ex-row.done .ex-name { color: var(--text); }
+  .ex-main { flex: 1; min-width: 0; }
+  .ex-name { font-size: 13px; font-weight: 600; }
+  .ex-movement {
+    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.4px; margin-top: 2px;
+  }
+  .ex-prescribed { font-size: 11.5px; color: var(--accent); margin-top: 3px; }
+  .ex-logged { flex-shrink: 0; text-align: right; min-width: 74px; }
+  .exl-weight { font-size: 15px; font-weight: 700; color: #7ab478; line-height: 1.1; }
+  .exl-weight span { font-size: 9px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+  .exl-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .exl-empty { font-size: 10.5px; color: var(--muted); opacity: 0.6; font-style: italic; }
+
   /* ---------- Shopping list ---------- */
   .panel-toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
   .panel-toggle-row .micro-toggle { flex: 1; margin-bottom: 0; }
@@ -1284,6 +1330,10 @@
         <svg class="mqb-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8.5 7h7"/><circle cx="9" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
         <span class="mqb-label">Calculator</span>
       </button>
+      <button class="meal-quick-btn" id="trainingQuickBtn" style="display:none;">
+        <svg class="mqb-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6M20 9v6M7 7v10M17 7v10M7 12h10"/></svg>
+        <span class="mqb-label">Training</span>
+      </button>
       <button class="meal-quick-btn" id="mealQuickBtn" style="display:none;">
         <svg class="mqb-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="3.5"/><path d="M3.5 4v4.5M3.5 4v4.5M20.5 4v4.5"/></svg>
         <span class="mqb-label">Meal Plan</span>
@@ -1389,6 +1439,15 @@
         <select id="calcMacroSplit"></select>
       </div>
     </div>
+  </div>
+
+  <div id="trainingPanel" style="display:none;">
+    <div class="topbar" style="padding-top:0;">
+      <h2 class="block-title" style="margin:0;">Training</h2>
+      <button class="logout" id="trainingCloseBtn">← Back</button>
+    </div>
+    <p class="block-sub" id="trainingSub"></p>
+    <div id="trainingContent"></div>
   </div>
 
   <div id="mealPlanPanel" style="display:none;">
@@ -2043,6 +2102,11 @@
       // Tapping a tab exits the meal plan view if it's open
       const mealPanel = document.getElementById("mealPlanPanel");
       const calcPanel = document.getElementById("calcPanel");
+      const trainPanel = document.getElementById("trainingPanel");
+      if (trainPanel && trainPanel.style.display === "block") {
+        trainPanel.style.display = "none";
+        setDashboardSectionsVisible(true);
+      }
       if ((mealPanel && mealPanel.style.display === "block") ||
           (calcPanel && calcPanel.style.display === "block")) {
         if (hasUnsavedMealEdits() &&
@@ -2472,8 +2536,10 @@
     btn.onclick = () => {
       renderMealPlanView(document.getElementById("mealPlanPanelContent"));
       setDashboardSectionsVisible(false);
-      const calcPanel = document.getElementById("calcPanel");
-      if (calcPanel) calcPanel.style.display = "none";
+      ["calcPanel", "trainingPanel"].forEach(id => {
+        const p = document.getElementById(id);
+        if (p) p.style.display = "none";
+      });
       panel.style.display = "block";
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -2644,6 +2710,7 @@
     renderPlannerTab();
     renderCurrentPlanBanner();
     setupMealPlanButton();
+    setupTrainingButton();
     setupCalculator();
     renderSpeciality();
   }
@@ -5012,6 +5079,210 @@
     });
 
     draw();
+  }
+
+
+  // ---------- Training sessions ----------
+  // Reads the prescribed program from Training_Program and shows it a day at
+  // a time, with whatever has already been logged from Training_Data.
+  // Read-only for now — entry comes next.
+
+  let trainingWeekKey = null;   // "BlockID||Week"
+  let trainingDay = null;       // "Day 1" etc.
+
+  function programRows() {
+    return (clientData.trainingProgram || []).filter(r => r["Exercise"]);
+  }
+
+  // Weeks available, newest first
+  function programWeeks() {
+    const seen = {};
+    programRows().forEach(r => {
+      const key = r["BlockID"] + "||" + r["Week"];
+      if (!seen[key]) {
+        seen[key] = {
+          key,
+          blockID: r["BlockID"],
+          week: r["Week"],
+          date: parseDate(r["Date"]),
+          label: r["Week"]
+        };
+      }
+    });
+    return Object.values(seen).sort((a, b) => {
+      if (a.date && b.date) return b.date - a.date;
+      return String(b.week).localeCompare(String(a.week));
+    });
+  }
+
+  // The week containing today, falling back to the most recent one that has
+  // already started — a client opening mid-block should land on now, not on
+  // whatever week happens to sort first.
+  function currentProgramWeek() {
+    const weeks = programWeeks();
+    if (!weeks.length) return null;
+    const today = new Date();
+
+    const containing = weeks.find(w => {
+      if (!w.date) return false;
+      const end = new Date(w.date);
+      end.setDate(w.date.getDate() + 6);
+      return today >= w.date && today <= end;
+    });
+    if (containing) return containing;
+
+    const started = weeks.filter(w => w.date && w.date <= today);
+    return started.length ? started[0] : weeks[weeks.length - 1];
+  }
+
+  function daysInWeek(weekKey) {
+    const rows = programRows().filter(r => (r["BlockID"] + "||" + r["Week"]) === weekKey);
+    const days = {};
+    rows.forEach(r => {
+      const d = r["Day"] || "Day 1";
+      if (!days[d]) days[d] = { day: d, title: r["Day Title"] || d, exercises: [] };
+      days[d].exercises.push(r);
+    });
+    Object.values(days).forEach(d => {
+      d.exercises.sort((a, b) => (Number(a["Order"]) || 0) - (Number(b["Order"]) || 0));
+    });
+    return Object.values(days).sort((a, b) => {
+      const na = Number(String(a.day).replace(/\D/g, "")) || 0;
+      const nb = Number(String(b.day).replace(/\D/g, "")) || 0;
+      return na - nb;
+    });
+  }
+
+  // What was actually logged for an exercise in a given block and week
+  function loggedFor(blockID, week, exercise) {
+    return (clientData.trainingData || []).find(r =>
+      r["BlockID"] === blockID &&
+      String(r["Week"]) === String(week) &&
+      String(r["Exercise"]).trim().toLowerCase() === String(exercise).trim().toLowerCase()
+    ) || null;
+  }
+
+  function setupTrainingButton() {
+    const btn = document.getElementById("trainingQuickBtn");
+    const panel = document.getElementById("trainingPanel");
+    const closeBtn = document.getElementById("trainingCloseBtn");
+
+    // Only meaningful for training clients with a program imported
+    const hasProgram = programRows().length > 0;
+    btn.style.display = (hasProgram && !isNutritionOnlyClient()) ? "flex" : "none";
+    if (!hasProgram) { panel.style.display = "none"; return; }
+
+    btn.onclick = () => {
+      const w = currentProgramWeek();
+      trainingWeekKey = w ? w.key : null;
+      trainingDay = null;
+      renderTrainingPanel();
+      setDashboardSectionsVisible(false);
+      ["mealPlanPanel", "calcPanel"].forEach(id => {
+        const p = document.getElementById(id);
+        if (p) p.style.display = "none";
+      });
+      panel.style.display = "block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    closeBtn.onclick = () => {
+      panel.style.display = "none";
+      setDashboardSectionsVisible(true);
+    };
+  }
+
+  function renderTrainingPanel() {
+    const content = document.getElementById("trainingContent");
+    const weeks = programWeeks();
+    if (!weeks.length) {
+      content.innerHTML = `<div class="chart-empty">No program found yet.</div>`;
+      return;
+    }
+
+    const week = weeks.find(w => w.key === trainingWeekKey) || weeks[0];
+    trainingWeekKey = week.key;
+
+    const days = daysInWeek(week.key);
+    if (!trainingDay || !days.some(d => d.day === trainingDay)) {
+      trainingDay = days.length ? days[0].day : null;
+    }
+
+    document.getElementById("trainingSub").textContent =
+      `${week.blockID}${week.date ? " · week of " + formatDMY(week.date) : ""}`;
+
+    const dayIdx = days.findIndex(d => d.day === trainingDay);
+    const active = days[dayIdx];
+
+    content.innerHTML = `
+      <div class="calc-field">
+        <label>Week</label>
+        <select id="trainingWeekSelect">
+          ${weeks.map(w => `<option value="${w.key}"${w.key === week.key ? " selected" : ""}>${w.label}${w.date ? " · " + formatDMY(w.date) : ""}</option>`).join("")}
+        </select>
+      </div>
+
+      <div class="day-nav">
+        <button class="day-nav-btn" id="dayPrev"${dayIdx <= 0 ? " disabled" : ""}>‹</button>
+        <div class="day-nav-tabs">
+          ${days.map(d => `<button class="day-tab${d.day === trainingDay ? " active" : ""}" data-day="${d.day}">${d.day.replace("Day ", "")}</button>`).join("")}
+        </div>
+        <button class="day-nav-btn" id="dayNext"${dayIdx >= days.length - 1 ? " disabled" : ""}>›</button>
+      </div>
+
+      ${active ? renderSessionCard(active, week) : `<div class="chart-empty">No sessions in this week.</div>`}
+    `;
+
+    document.getElementById("trainingWeekSelect").onchange = (e) => {
+      trainingWeekKey = e.target.value;
+      trainingDay = null;
+      renderTrainingPanel();
+    };
+    content.querySelectorAll(".day-tab").forEach(btn => {
+      btn.onclick = () => { trainingDay = btn.dataset.day; renderTrainingPanel(); };
+    });
+    const prev = document.getElementById("dayPrev");
+    const next = document.getElementById("dayNext");
+    if (prev) prev.onclick = () => { if (dayIdx > 0) { trainingDay = days[dayIdx - 1].day; renderTrainingPanel(); } };
+    if (next) next.onclick = () => { if (dayIdx < days.length - 1) { trainingDay = days[dayIdx + 1].day; renderTrainingPanel(); } };
+  }
+
+  function renderSessionCard(day, week) {
+    const doneCount = day.exercises.filter(e => String(e["Logged"]).trim().toUpperCase() === "Y").length;
+
+    const rows = day.exercises.map(ex => {
+      const logged = loggedFor(week.blockID, week.week, ex["Exercise"]);
+      const isDone = !!logged;
+
+      const prescribedBits = [];
+      if (ex["Sets"]) prescribedBits.push(`${ex["Sets"]} × ${ex["Reps"] || "?"}`);
+      if (ex["Prescribed"]) prescribedBits.push(String(ex["Prescribed"]));
+
+      return `
+        <div class="ex-row${isDone ? " done" : ""}">
+          <div class="ex-main">
+            <div class="ex-name">${ex["Exercise"]}</div>
+            ${ex["Movement"] ? `<div class="ex-movement">${ex["Movement"]}</div>` : ""}
+            ${prescribedBits.length ? `<div class="ex-prescribed">${prescribedBits.join(" · ")}</div>` : ""}
+          </div>
+          <div class="ex-logged">
+            ${isDone ? `
+              <div class="exl-weight">${roundTo(Number(logged["Avg Weight"]), 1) || "—"}<span>kg avg</span></div>
+              ${logged["Top Set"] ? `<div class="exl-sub">top ${roundTo(Number(logged["Top Set"]), 1)}kg</div>` : ""}
+              ${logged["RPE"] ? `<div class="exl-sub">RPE ${roundTo(Number(logged["RPE"]), 1)}</div>` : ""}
+            ` : `<div class="exl-empty">Not logged</div>`}
+          </div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="chart-card">
+        <div class="session-head">
+          <h3 style="margin:0;">${day.title}</h3>
+          <span class="session-progress">${doneCount} of ${day.exercises.length} logged</span>
+        </div>
+        <div class="session-rows">${rows}</div>
+      </div>`;
   }
 
   // ---------- Shopping list ----------
