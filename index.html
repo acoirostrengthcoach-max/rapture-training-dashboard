@@ -856,6 +856,10 @@
   .exi-note:focus { outline: none; border-color: var(--accent-dim); }
   .exi-note::placeholder { color: var(--muted); opacity: 0.6; }
 
+
+  .session-save { margin-top: 18px; }
+  body.wide-mode #trainingContent > .session-save { grid-column: 1 / -1; }
+
   /* ---------- Shopping list ---------- */
   .panel-toggle-row { display: flex; gap: 8px; margin-bottom: 14px; }
   .panel-toggle-row .micro-toggle { flex: 1; margin-bottom: 0; }
@@ -5831,6 +5835,9 @@
       btn.onclick = () => openExerciseVideo(btn.dataset.video, btn.dataset.title);
     });
 
+    const saveBtn = document.getElementById("sessionSaveBtn");
+    if (saveBtn && active) saveBtn.onclick = () => saveTrainingSession(week, active);
+
     content.querySelectorAll(".bw-toggle").forEach(btn => {
       btn.onclick = () => {
         const row = btn.closest(".set-row");
@@ -5869,6 +5876,106 @@
     const n = parseInt(String(ex["Sets"] || "").replace(/\D/g, ""), 10);
     if (!n || n < 1) return 1;
     return Math.min(n, 6);   // the sheet holds six set columns
+  }
+
+
+  // Gathers what's been entered for the visible day. Reads the DOM rather
+  // than tracking state as the client types — a session is saved in one go,
+  // so there's nothing to keep in sync in between.
+  function collectSessionEntry(day) {
+    return day.exercises.map((ex, idx) => {
+      const card = document.querySelector(`.ex-card[data-ex="${idx}"]`);
+      if (!card) return null;
+
+      const sets = [];
+      card.querySelectorAll(".exi-weight").forEach(input => {
+        const setNo = Number(input.dataset.set) || 1;
+        const row = input.closest(".set-row");
+
+        if (row && row.classList.contains("is-bw")) {
+          sets[setNo - 1] = 1;          // bodyweight records as 1
+          return;
+        }
+        // A ticked checkbox with no weight also records as 1
+        const check = row ? row.querySelector(".exi-done") : null;
+        if (check && check.checked && input.value === "") {
+          sets[setNo - 1] = 1;
+          return;
+        }
+        if (check && !check.checked && input.value === "") {
+          sets[setNo - 1] = "";
+          return;
+        }
+        sets[setNo - 1] = input.value === "" ? "" : Number(input.value);
+      });
+
+      const rpeEl = card.querySelector(".exi-rpe");
+      const noteEl = card.querySelector(".exi-note");
+
+      return {
+        exercise: ex["Exercise"],
+        sets,
+        rpe: rpeEl ? rpeEl.value : "",
+        notes: noteEl ? noteEl.value : ""
+      };
+    }).filter(Boolean);
+  }
+
+  async function saveTrainingSession(week, day) {
+    const msg = document.getElementById("sessionSaveMsg");
+    function show(text, kind) {
+      msg.textContent = text;
+      msg.className = "checkin-form-msg " + (kind || "");
+    }
+
+    const exercises = collectSessionEntry(day);
+    const hasAnything = exercises.some(e =>
+      e.sets.some(s => s !== "" && s !== undefined) ||
+      String(e.rpe).trim() !== "" || String(e.notes).trim() !== ""
+    );
+    if (!hasAnything) {
+      show("Nothing entered yet for this session.", "error");
+      return;
+    }
+
+    const btn = document.getElementById("sessionSaveBtn");
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    showLoading("Saving session...");
+
+    try {
+      const payload = {
+        action: "saveTrainingSession",
+        email: currentEmail,
+        passcode: currentPasscode,
+        week: week.week,
+        day: day.day,
+        exercises
+      };
+      if (isAdminView) payload.client = clientData.client;
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.error) { show(data.error, "error"); return; }
+
+      show(
+        `Saved ${data.exercisesWritten} exercise${data.exercisesWritten === 1 ? "" : "s"}.` +
+        (data.warning ? " " + data.warning : ""),
+        data.warning ? "error" : "success"
+      );
+    } catch (err) {
+      show("Couldn't save — check your connection and try again.", "error");
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Save Session";
+      hideLoading();
+    }
   }
 
   function renderSessionCard(day, week) {
@@ -5984,7 +6091,11 @@
         <h3 style="margin:0;">${day.title}</h3>
         <span class="session-progress">${doneCount} of ${day.exercises.length} logged</span>
       </div>
-      ${cards}`;
+      ${cards}
+      <div class="session-save">
+        <button class="full" id="sessionSaveBtn">Save Session</button>
+        <div class="checkin-form-msg" id="sessionSaveMsg"></div>
+      </div>`;
   }
 
   // ---------- Shopping list ----------
