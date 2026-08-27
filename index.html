@@ -698,6 +698,31 @@
     box-shadow: 0 2px 10px rgba(212,162,76,0.25);
   }
 
+
+  /* Completion state on the day tabs. The active tab keeps its gold fill,
+     with a coloured underline showing progress, so selection and progress
+     stay readable at the same time. */
+  .day-tab { position: relative; }
+  .day-tab.complete:not(.active) {
+    color: var(--good);
+    border-color: rgba(122,180,120,0.45);
+    background: rgba(122,180,120,0.1);
+  }
+  .day-tab.partial:not(.active) {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+    background: rgba(212,162,76,0.09);
+  }
+  .day-tab.complete::after, .day-tab.partial::after {
+    content: ""; position: absolute; left: 26%; right: 26%; bottom: 5px;
+    height: 2px; border-radius: var(--radius-pill);
+  }
+  .day-tab.complete::after { background: var(--good); }
+  .day-tab.partial::after { background: var(--accent); }
+  /* On the active tab the fill is gold, so the marker flips to dark */
+  .day-tab.active.complete::after { background: rgba(10,9,8,0.55); }
+  .day-tab.active.partial::after { background: rgba(10,9,8,0.35); }
+
   /* ---- Session header ---- */
   .session-head {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -5832,7 +5857,14 @@
       <div class="day-nav">
         <button class="day-nav-btn" id="dayPrev"${dayIdx <= 0 ? " disabled" : ""}>‹</button>
         <div class="day-nav-tabs">
-          ${days.map(d => `<button class="day-tab${d.day === trainingDay ? " active" : ""}" data-day="${d.day}">${d.day.replace("Day ", "")}</button>`).join("")}
+          ${days.map(d => {
+            // Green when every exercise is logged, gold when partly done —
+            // a client can see at a glance which sessions still need work
+            const logged = d.exercises.filter(exerciseIsLogged).length;
+            const state = logged === 0 ? ""
+                        : (logged === d.exercises.length ? " complete" : " partial");
+            return `<button class="day-tab${state}${d.day === trainingDay ? " active" : ""}" data-day="${d.day}">${d.day.replace("Day ", "")}</button>`;
+          }).join("")}
         </div>
         <button class="day-nav-btn" id="dayNext"${dayIdx >= days.length - 1 ? " disabled" : ""}>›</button>
       </div>
