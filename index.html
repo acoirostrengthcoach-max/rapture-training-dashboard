@@ -708,6 +708,11 @@
     background: var(--card2); border-radius: var(--radius-pill); padding: 4px 11px;
   }
 
+
+  .session-progress.complete {
+    color: var(--good); background: rgba(122,180,120,0.14); font-weight: 600;
+  }
+
   /* ---- Exercise cards ---- */
   .ex-card {
     background: var(--card); border: 1px solid var(--border);
@@ -785,6 +790,19 @@
     border-color: var(--accent-dim); color: var(--accent);
   }
 
+
+
+  /* RPE is a fixed scale, so it's a select rather than a free number field */
+  select.exi-rpe {
+    background-color: var(--card2); border: 1px solid var(--border);
+    border-radius: var(--radius-pill); color: var(--text);
+    font-size: 14px; font-weight: 600; padding: 10px 8px;
+    width: 100%; margin-bottom: 0; text-align: center;
+    text-align-last: center;
+  }
+  select.exi-rpe:focus { outline: none; border-color: var(--accent); }
+  /* A chosen value stands out from an empty one, same as the weight fields */
+  select.exi-rpe.has-value { border-color: var(--accent-dim); color: var(--accent); }
 
   /* Bodyweight toggle — records a 1 so the sheet's volume maths still works */
   .weight-cell { position: relative; display: flex; align-items: center; }
@@ -5754,10 +5772,10 @@
     const sub = document.getElementById("sebSub");
     if (sub && w) {
       const rows = programRows().filter(r => (r["BlockID"] + "||" + r["Week"]) === w.key);
-      const done = rows.filter(r => String(r["Logged"]).trim().toUpperCase() === "Y").length;
+      const done = rows.filter(exerciseIsLogged).length;
       const outstanding = rows.length - done;
       sub.textContent = outstanding > 0
-        ? `${outstanding} exercise${outstanding === 1 ? "" : "s"} still to log`
+        ? `${outstanding} exercise${outstanding === 1 ? "" : "s"} remaining this week`
         : "All logged for this week";
     }
 
@@ -5838,6 +5856,13 @@
     const saveBtn = document.getElementById("sessionSaveBtn");
     if (saveBtn && active) saveBtn.onclick = () => saveTrainingSession(week, active);
 
+    // A chosen RPE reads gold, matching how filled weight fields behave
+    content.querySelectorAll(".exi-rpe").forEach(sel => {
+      const sync = () => sel.classList.toggle("has-value", sel.value !== "");
+      sync();
+      sel.onchange = sync;
+    });
+
     content.querySelectorAll(".bw-toggle").forEach(btn => {
       btn.onclick = () => {
         const row = btn.closest(".set-row");
@@ -5856,6 +5881,10 @@
     if (prev) prev.onclick = () => { if (dayIdx > 0) { trainingDay = days[dayIdx - 1].day; renderTrainingPanel(); } };
     if (next) next.onclick = () => { if (dayIdx < days.length - 1) { trainingDay = days[dayIdx + 1].day; renderTrainingPanel(); } };
   }
+
+  // RPE runs 4 to 10 in half points. Below 4 isn't worth recording — a set
+  // that easy tells you nothing useful about the session.
+  const RPE_OPTIONS = [4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
 
   // Movements logged as done-or-not rather than by load. A weight field is
   // still offered, since some are loaded — leaving it blank records a 1,
@@ -5968,6 +5997,21 @@
         (data.warning ? " " + data.warning : ""),
         data.warning ? "error" : "success"
       );
+
+      // Refresh so the remaining count and card states reflect the save,
+      // rather than waiting for the nightly import
+      try {
+        let url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}`;
+        if (isAdminView) url += `&targetClient=${encodeURIComponent(clientData.client)}`;
+        const refreshed = await (await fetch(url)).json();
+        if (!refreshed.error) {
+          clientData = refreshed;
+          renderTrainingPanel();
+          setupTrainingButton();   // keeps the entry card's count in step
+        }
+      } catch (e) {
+        console.error("Saved, but couldn't refresh the view:", e);
+      }
     } catch (err) {
       show("Couldn't save — check your connection and try again.", "error");
       console.error(err);
@@ -5978,8 +6022,20 @@
     }
   }
 
+  // An exercise counts as logged if any set has a weight recorded. Derived
+  // from the data itself rather than the Logged column, so the two can't
+  // disagree — the column is a convenience for the sheet, not the source.
+  function exerciseIsLogged(ex) {
+    for (let s = 1; s <= 6; s++) {
+      const v = ex["Set " + s];
+      if (v !== "" && v !== null && v !== undefined) return true;
+    }
+    return String(ex["Logged"]).trim().toUpperCase() === "Y";
+  }
+
   function renderSessionCard(day, week) {
-    const doneCount = day.exercises.filter(e => String(e["Logged"]).trim().toUpperCase() === "Y").length;
+    const doneCount = day.exercises.filter(exerciseIsLogged).length;
+    const remaining = day.exercises.length - doneCount;
 
     const cards = day.exercises.map((ex, idx) => {
       const checkboxStyle = isCheckboxMovement(ex["Movement"]);
@@ -5992,7 +6048,7 @@
         const v = ex["Set " + s];
         setWeights.push((v === "" || v === null || v === undefined) ? "" : v);
       }
-      const anyLogged = setWeights.some(v => v !== "");
+      const anyLogged = exerciseIsLogged(ex);
 
       const prescribedBits = [];
       if (ex["Sets"]) prescribedBits.push(`${ex["Sets"]} × ${ex["Reps"] || "?"}`);
@@ -6061,8 +6117,10 @@
           <div class="set-rows">${rows.join("")}</div>
           <div class="ex-rpe-row">
             <label>RPE</label>
-            <input type="number" step="0.5" min="1" max="10" class="exi-rpe" data-ex="${idx}"
-                   value="${ex["RPE"] !== "" && ex["RPE"] !== undefined && ex["RPE"] !== null ? roundTo(Number(ex["RPE"]), 1) : ""}">
+            <select class="exi-rpe" data-ex="${idx}">
+              <option value="">—</option>
+              ${RPE_OPTIONS.map(v => `<option value="${v}"${Number(ex["RPE"]) === v ? " selected" : ""}>${v}</option>`).join("")}
+            </select>
           </div>`;
       }
 
@@ -6089,7 +6147,11 @@
     return `
       <div class="session-head">
         <h3 style="margin:0;">${day.title}</h3>
-        <span class="session-progress">${doneCount} of ${day.exercises.length} logged</span>
+        <span class="session-progress${remaining === 0 ? " complete" : ""}">${
+          remaining === 0
+            ? "Session complete"
+            : `${remaining} exercise${remaining === 1 ? "" : "s"} remaining`
+        }</span>
       </div>
       ${cards}
       <div class="session-save">
