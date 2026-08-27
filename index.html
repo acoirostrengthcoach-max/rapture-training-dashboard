@@ -1537,32 +1537,49 @@
   /* ===============================================================
      WIDE MODE — coach only
      The app is built mobile-first: one narrow column, cards stacked,
-     bottom tab bar. That's right for a client logging a session on a
-     phone, but cramped for reviewing a client's history or building a
-     meal plan at a desk.
-     Toggling wide mode widens the shell and lets dense sections use the
-     extra room, rather than stretching a phone layout across a monitor.
+     bottom tab bar. That suits a client logging a session on a phone but
+     wastes most of a monitor when reviewing history or building a plan.
+
+     Rather than stretching the phone layout, wide mode gives each section
+     the shape that actually suits it — charts side by side, denser grids
+     for tiles, and larger stat chips that can be read at a glance.
      =============================================================== */
   body.wide-mode #dashboard {
-    max-width: 1180px;
-    padding: 24px 28px calc(90px + env(safe-area-inset-bottom, 0px));
+    max-width: 1240px;
+    padding: 26px 32px calc(90px + env(safe-area-inset-bottom, 0px));
   }
-  body.wide-mode #coachScreen { max-width: 1180px !important; padding: 24px 28px 60px !important; }
+  body.wide-mode #coachScreen {
+    max-width: 1240px !important;
+    padding: 26px 32px 60px !important;
+  }
 
-  /* Client tiles fill the width rather than sitting in a narrow stack */
+  /* ---- Client list ---- */
   body.wide-mode .coach-grid {
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
   }
 
-  /* Charts pair up — comparing two trends side by side is the main
-     reason to be on a desktop in the first place */
+  /* ---- Lifetime stat chips ----
+     auto-fit at 80px squeezed eight chips into a narrow strip. Fixing the
+     count and enlarging the type makes them readable at desk distance. */
+  body.wide-mode .scorecard {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  body.wide-mode .stat-chip { padding: 18px 14px; border-radius: var(--radius-lg); }
+  body.wide-mode .stat-value { font-size: 22px; }
+  body.wide-mode .stat-label { font-size: 11px; margin-top: 5px; }
+
+  /* ---- Two-column body for chart-heavy tabs ----
+     Applied to the panel's own children, and again inside the check-in
+     detail view, which is where most of the charts actually live. */
   body.wide-mode .tab-panel.active {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 20px;
+    gap: 0 22px;
     align-items: start;
   }
-  /* Headings, banners and controls still span the full width */
   body.wide-mode .tab-panel.active > .block-title,
   body.wide-mode .tab-panel.active > .block-sub,
   body.wide-mode .tab-panel.active > .current-plan-banner,
@@ -1571,45 +1588,82 @@
   body.wide-mode .tab-panel.active > .comp-countdown,
   body.wide-mode .tab-panel.active > .year-strip-wrap,
   body.wide-mode .tab-panel.active > .plan-toolbar,
+  body.wide-mode .tab-panel.active > .speciality-row,
   body.wide-mode .tab-panel.active > select,
   body.wide-mode .tab-panel.active > button,
-  body.wide-mode .tab-panel.active > .checkin-tiles,
+  body.wide-mode .tab-panel.active > #deloadWarnings,
+  body.wide-mode .tab-panel.active > #planEditor,
+  body.wide-mode .tab-panel.active > #planCopyPanel,
+  body.wide-mode .tab-panel.active > #planHistoryPanel,
   body.wide-mode .tab-panel.active > #plannerWeeks,
+  body.wide-mode .tab-panel.active > #checkinOverview,
   body.wide-mode .tab-panel.active > #checkinDetail {
     grid-column: 1 / -1;
   }
 
-  /* More tiles per row where they'd otherwise be sparse */
-  body.wide-mode .checkin-tiles {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* ---- Check-in tiles ---- */
+  body.wide-mode .checkin-tile-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
   }
-  body.wide-mode .scorecard {
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  body.wide-mode .checkin-tile { padding: 20px 12px; }
+  body.wide-mode .checkin-tile-icon { font-size: 26px; }
+  body.wide-mode .checkin-tile-name { font-size: 12.5px; margin-top: 8px; }
+
+  /* ---- Check-in detail: the charts pair up ----
+     This is the main reason to be on a desktop, and where the single
+     column wasted the most space. */
+  body.wide-mode #checkinDetailContent,
+  body.wide-mode #trainingContent,
+  body.wide-mode #mealPlanPanelContent {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 20px;
+    align-items: start;
+  }
+  /* Anything that reads as a header, control or list stays full width */
+  body.wide-mode #checkinDetailContent > .pr-row,
+  body.wide-mode #checkinDetailContent > .blood-disclaimer,
+  body.wide-mode #checkinDetailContent > .micro-ref-note,
+  body.wide-mode #checkinDetailContent > select,
+  body.wide-mode #checkinDetailContent > .photo-mode-row,
+  body.wide-mode #checkinDetailContent > #photoUploadWrap,
+  body.wide-mode #checkinDetailContent > #photoBody,
+  body.wide-mode #trainingContent > .calc-field,
+  body.wide-mode #trainingContent > .day-nav,
+  body.wide-mode #trainingContent > .session-head,
+  body.wide-mode #mealPlanPanelContent > .plan-selector-row,
+  body.wide-mode #mealPlanPanelContent > #createPlanWrap {
+    grid-column: 1 / -1;
   }
 
-  /* Meal plan and training entry get two columns of cards */
-  body.wide-mode #mealPlanContent .meal-block,
-  body.wide-mode #trainingContent .ex-card {
-    break-inside: avoid;
-  }
-  body.wide-mode #trainingContent .ex-card { margin-bottom: 12px; }
-  body.wide-mode .session-rows-wrap,
-  body.wide-mode #trainingContent > .ex-card-list {
-    column-count: 2; column-gap: 18px;
-  }
+  /* Charts get more height where there's room */
+  body.wide-mode .chart-scroll-inner { height: 320px; }
+  body.wide-mode canvas { max-height: 320px; }
 
-  /* The calculator reads better as two columns than one long form */
+  /* ---- Panels that are really forms ---- */
   body.wide-mode .calc-inputs {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px;
   }
   body.wide-mode .calc-inputs > .calc-field:last-child { grid-column: 1 / -1; }
+  body.wide-mode .calc-result-bar .day-totals { max-width: 640px; }
 
-  /* Charts get more height when there's room for it */
-  body.wide-mode .chart-scroll-inner { height: 300px; }
+  /* Check-in form reads far better as two columns than one long scroll */
+  body.wide-mode #checkinForm .checkin-form-section .form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
 
-  /* The bottom tab bar becomes a centred strip rather than full-bleed */
+  /* ---- Planner weeks: two columns of a long list ---- */
+  body.wide-mode #plannerWeeks {
+    column-count: 2; column-gap: 18px;
+  }
+  body.wide-mode #plannerWeeks .plan-week {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+  }
+
+  /* ---- Bottom tab bar becomes a centred strip ---- */
   body.wide-mode .tabs {
-    max-width: 1180px; left: 50%; transform: translateX(-50%);
+    max-width: 1240px; left: 50%; transform: translateX(-50%);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 
