@@ -5818,29 +5818,28 @@
     });
   }
 
-  /* After the first paint, quietly pull the sections the client is most
-     likely to open next. By the time they tap a tab the data is usually
-     already there, so the lazy loading is invisible. */
+  /* After first paint, pull the remaining sections.
+
+     Fetched in parallel rather than one after another: they were sequential
+     with a gap between each, so the last one could land half a minute after
+     login. Apps Script handles concurrent reads fine, and the page updates
+     as each arrives. */
   function prefetchLikelyScopes() {
-    const order = isNutritionOnlyClient()
+    const scopes = isNutritionOnlyClient()
       ? ["checkins", "meals", "planner"]
       : ["training", "checkins", "planner"];
 
-    let i = 0;
-    const next = () => {
-      if (i >= order.length) return;
-      const scope = order[i++];
-      if (loadedScopes.has(scope)) { next(); return; }
-      loadScope(scope)
-        .then(() => {
-          try { renderDashboard(); }
-          catch (e) { console.error(`Re-render after loading ${scope} failed:`, e); }
-        })
-        .catch(() => { /* a tab open will retry */ })
-        .finally(() => setTimeout(next, 400));   // spaced out to stay responsive
-    };
-    // Let the first paint settle before competing for bandwidth
-    setTimeout(next, 600);
+    setTimeout(() => {
+      scopes.forEach(scope => {
+        if (loadedScopes.has(scope)) return;
+        loadScope(scope)
+          .then(() => {
+            try { renderDashboard(); }
+            catch (e) { console.error(`Re-render after ${scope} failed:`, e); }
+          })
+          .catch(err => console.warn(`Prefetch of ${scope} failed:`, err.message));
+      });
+    }, 300);   // brief pause so first paint isn't competing for bandwidth
   }
 
   // ---------- Data loading ----------
