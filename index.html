@@ -658,6 +658,33 @@
   button.ex-link:hover { border-color: var(--accent-dim); background: var(--card2); }
   button.ex-link:active { transform: scale(0.94); }
 
+
+  .app-toast {
+    position: fixed; left: 50%; bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%) translateY(12px);
+    background: var(--card); border: 1px solid var(--accent-dim);
+    border-radius: var(--radius-pill); padding: 10px 18px;
+    font-size: 12.5px; color: var(--text); z-index: 1500;
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--ease-gentle), transform var(--ease-gentle);
+    max-width: calc(100% - 40px); text-align: center;
+  }
+  .app-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+
+  /* A section still fetching its data. Deliberately subtle — the shell and
+     any cached data are already visible, so this signals "more coming"
+     rather than blocking the view. */
+  .tab-panel.loading-scope { position: relative; min-height: 200px; }
+  .tab-panel.loading-scope::after {
+    content: "Loading...";
+    position: absolute; inset: 0; display: flex;
+    align-items: flex-start; justify-content: center; padding-top: 60px;
+    font-size: 12px; color: var(--muted);
+    background: linear-gradient(var(--bg) 40%, transparent);
+    pointer-events: none;
+  }
+
   /* ---------- Training sessions ---------- */
   .session-entry-btn {
     width: 100%; display: flex; align-items: center; justify-content: space-between;
@@ -2634,6 +2661,11 @@
       document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
       tab.classList.add("active");
       document.getElementById("panel-" + tab.dataset.tab).classList.add("active");
+
+      // Each tab pulls its own data the first time it's opened, rather than
+      // everything arriving at login
+      loadTabData(tab.dataset.tab);
+
       // Wait one frame so the browser has applied the new display:block
       // before asking Chart.js to recompute its size against it.
       requestAnimationFrame(resizeAllCharts);
@@ -2692,7 +2724,8 @@
     showLoading("Logging in...");
 
     try {
-      const url = `${API_URL}?email=${encodeURIComponent(email)}&passcode=${encodeURIComponent(passcode)}`;
+      // Core only — enough for first paint. The rest arrives behind it.
+      const url = `${API_URL}?email=${encodeURIComponent(email)}&passcode=${encodeURIComponent(passcode)}&scope=core`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -2720,10 +2753,13 @@
         currentEmail = email;
         currentPasscode = passcode;
         isAdminView = false;
-      setupViewToggle(false);
+        setupViewToggle(false);
         localStorage.setItem("rapture_email", email);
         localStorage.setItem("rapture_passcode", passcode);
+        loadedScopes.add("core");
+        writeCache("core", null, data);
         renderDashboard();
+        prefetchLikelyScopes();   // fill in the rest quietly
         loginScreen.style.display = "none";
         dashboard.style.display = "block";
         requestAnimationFrame(resizeAllCharts);
@@ -2807,7 +2843,7 @@
   async function loadClientAsAdmin(clientName) {
     showLoading(`Loading ${clientName}...`);
     try {
-      const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientName)}`;
+      const url = `${API_URL}?email=${encodeURIComponent(currentEmail)}&passcode=${encodeURIComponent(currentPasscode)}&targetClient=${encodeURIComponent(clientName)}&scope=core`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -2819,7 +2855,11 @@
       clientData = data;
       isAdminView = true;
       setupViewToggle(true);
+      loadedScopes.clear();
+      loadedScopes.add("core");
+      writeCache("core", data.client, data);
       renderDashboard();
+      prefetchLikelyScopes();
 
       document.getElementById("backToClientsBtn").style.display = "inline-block";
       coachScreen.style.display = "none";
@@ -3165,7 +3205,19 @@
     });
   }
 
+  /* Called on first paint with only core data, then again as each section
+     arrives. Anything depending on data that hasn't loaded yet is skipped
+     rather than throwing, so a partial render is always safe. */
   function renderDashboard() {
+    // Normalise the collections the renderers expect, so a missing scope
+    // reads as "nothing yet" rather than undefined
+    ["trainingData", "weeklySummary", "trainingProgram", "dailyCheckins",
+     "weeklyCheckinSummary", "bloodResults", "bloodReference", "macrocyclePlan",
+     "planOptions", "planHistory", "progressPhotos", "mealPlans", "mealPlanMeta",
+     "mealPlanHistory", "foodDatabase"].forEach(k => {
+      if (!Array.isArray(clientData[k])) clientData[k] = clientData[k] || [];
+    });
+
     document.getElementById("clientNameLabel").textContent = clientData.client;
     avatarInitials.textContent = getInitials(clientData.client);
     setAvatarImage(clientData.photo || null);
@@ -3228,6 +3280,14 @@
     renderPlannerTab();
     renderCurrentPlanBanner();
     setupMealPlanButton();
+
+    // Anything that couldn't be sent earlier goes out now
+    retryPendingSaves().then(result => {
+      if (result.sent) {
+        console.log(`Sent ${result.sent} save(s) held from earlier.`);
+        showToast(`${result.sent} earlier ${result.sent === 1 ? "entry" : "entries"} sent through.`);
+      }
+    });
     setupTrainingButton();
     setupCalculator();
     renderSpeciality();
@@ -5701,6 +5761,284 @@
     });
   }
 
+
+
+  // Brief confirmation that doesn't demand a dismissal
+  function showToast(text) {
+    let el = document.getElementById("appToast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "appToast";
+      el.className = "app-toast";
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.classList.add("visible");
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => el.classList.remove("visible"), 4000);
+  }
+
+
+
+  // Which data each tab needs. renderDashboard rebuilds everything rather
+  // than there being a render function per tab, so it's simply called again
+  // once new data arrives — safe, and cheap enough not to be noticeable.
+  const TAB_SCOPES = {
+    currentBlock:    "training",
+    latestWeek:      "training",
+    allBlocks:       "training",
+    exerciseHistory: "training",
+    checkins:        "checkins",
+    planner:         "planner"
+  };
+
+  function loadTabData(tabName) {
+    const scope = TAB_SCOPES[tabName];
+    if (!scope || loadedScopes.has(scope)) return;
+
+    const panel = document.getElementById("panel-" + tabName);
+    if (panel) panel.classList.add("loading-scope");
+
+    ensureScope(scope, () => {
+      if (panel) panel.classList.remove("loading-scope");
+      try { renderDashboard(); } catch (e) { console.error("Re-render failed:", e); }
+      requestAnimationFrame(resizeAllCharts);
+    }).catch(() => {
+      if (panel) panel.classList.remove("loading-scope");
+      showToast("Couldn't load that section. Check your connection and try again.");
+    });
+  }
+
+  /* After the first paint, quietly pull the sections the client is most
+     likely to open next. By the time they tap a tab the data is usually
+     already there, so the lazy loading is invisible. */
+  function prefetchLikelyScopes() {
+    const order = isNutritionOnlyClient()
+      ? ["checkins", "meals", "planner"]
+      : ["training", "checkins", "planner"];
+
+    let i = 0;
+    const next = () => {
+      if (i >= order.length) return;
+      const scope = order[i++];
+      if (loadedScopes.has(scope)) { next(); return; }
+      loadScope(scope)
+        .then(() => { try { renderDashboard(); } catch (e) {} })
+        .catch(() => { /* a tab open will retry */ })
+        .finally(() => setTimeout(next, 400));   // spaced out to stay responsive
+    };
+    // Let the first paint settle before competing for bandwidth
+    setTimeout(next, 600);
+  }
+
+  // ---------- Data loading ----------
+  // Three things make this feel instant regardless of how much data a client
+  // has accumulated:
+  //
+  //   1. Scoped fetches — the app asks for the slice it needs, not everything
+  //   2. Cached first paint — the last known data renders immediately while
+  //      fresh data loads behind it
+  //   3. Lazy sections — a tab's data is fetched the first time it's opened
+  //
+  // Together these keep first paint roughly constant as a client's history
+  // grows, rather than getting slower every month.
+
+  const CACHE_PREFIX = "raptureData_";
+  const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;   // stale after 12 hours
+
+  const loadedScopes = new Set();
+  const inFlight = {};
+
+  function cacheKey(scope, client) {
+    return `${CACHE_PREFIX}${scope}_${client || currentEmail}`;
+  }
+
+  function readCache(scope, client) {
+    try {
+      const raw = localStorage.getItem(cacheKey(scope, client));
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (Date.now() - parsed.at > CACHE_MAX_AGE) return null;
+      return parsed.data;
+    } catch (e) { return null; }
+  }
+
+  function writeCache(scope, client, data) {
+    try {
+      localStorage.setItem(cacheKey(scope, client), JSON.stringify({ at: Date.now(), data }));
+    } catch (e) {
+      // Storage full or unavailable — caching is an optimisation, not a
+      // requirement, so carry on without it
+      console.warn("Couldn't cache " + scope + ":", e.message);
+    }
+  }
+
+  function buildUrl(scope, client) {
+    let url = `${API_URL}?email=${encodeURIComponent(currentEmail)}` +
+              `&passcode=${encodeURIComponent(currentPasscode)}&scope=${scope}`;
+    if (client) url += `&targetClient=${encodeURIComponent(client)}`;
+    return url;
+  }
+
+  /* Fetches a scope, merging it into clientData. Deduplicates concurrent
+     requests for the same scope, since several parts of the UI may ask for
+     the same data at once. */
+  async function loadScope(scope, options) {
+    const opts = options || {};
+    const client = isAdminView ? clientData.client : null;
+    const key = scope + "|" + (client || "");
+
+    if (inFlight[key]) return inFlight[key];
+
+    const promise = (async () => {
+      try {
+        const res = await fetch(buildUrl(scope, client));
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        Object.keys(data).forEach(k => {
+          if (k !== "__scope") clientData[k] = data[k];
+        });
+        writeCache(scope, client, data);
+        loadedScopes.add(scope);
+        return data;
+      } finally {
+        delete inFlight[key];
+      }
+    })();
+
+    inFlight[key] = promise;
+    return promise;
+  }
+
+  /* Ensures a scope is available before rendering something that needs it.
+     Uses cached data for an immediate render where possible, then refreshes
+     behind the scenes. */
+  async function ensureScope(scope, onReady) {
+    if (loadedScopes.has(scope)) { if (onReady) onReady(false); return; }
+
+    const client = isAdminView ? clientData.client : null;
+    const cached = readCache(scope, client);
+
+    if (cached) {
+      Object.keys(cached).forEach(k => {
+        if (k !== "__scope") clientData[k] = cached[k];
+      });
+      loadedScopes.add(scope);
+      if (onReady) onReady(true);        // rendered from cache
+
+      // Refresh quietly so the next view is current
+      loadScope(scope).then(() => { if (onReady) onReady(false); })
+                      .catch(err => console.warn(`Background refresh of ${scope} failed:`, err.message));
+      return;
+    }
+
+    try {
+      await loadScope(scope);
+      if (onReady) onReady(false);
+    } catch (err) {
+      console.error(`Couldn't load ${scope}:`, err);
+      throw err;
+    }
+  }
+
+  function clearDataCache(client) {
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(CACHE_PREFIX))
+        .filter(k => !client || k.endsWith("_" + client))
+        .forEach(k => localStorage.removeItem(k));
+    } catch (e) { /* nothing useful to do */ }
+    loadedScopes.clear();
+  }
+
+  // ---------- Resilient posting ----------
+  // Apps Script limits concurrent executions per account, so a save landing
+  // while the nightly import is running can be queued or rejected outright.
+  // That shows up as a connection failure even on a good connection, and
+  // clears once the import finishes.
+  //
+  // Retrying with a growing delay covers that window, and anything still
+  // failing afterwards is kept locally so the work isn't lost.
+  async function postWithRetry(payload, options) {
+    const opts = options || {};
+    const attempts = opts.attempts || 3;
+    const onAttempt = opts.onAttempt || function () {};
+
+    let lastError = null;
+
+    for (let i = 0; i < attempts; i++) {
+      if (i > 0) {
+        // 2s, then 5s — long enough to outlast a brief lock without
+        // leaving the person staring at a frozen button
+        const wait = i === 1 ? 2000 : 5000;
+        onAttempt(i + 1, attempts, wait);
+        await new Promise(r => setTimeout(r, wait));
+      }
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        // A returned error is the server answering, not a transport failure,
+        // so there's nothing to gain from retrying it
+        return { ok: true, data };
+      } catch (err) {
+        lastError = err;
+        console.warn(`Attempt ${i + 1} of ${attempts} failed:`, err.message);
+      }
+    }
+
+    return { ok: false, error: lastError };
+  }
+
+  // ---------- Unsent work ----------
+  // A failed save shouldn't cost a client their session. Anything that
+  // couldn't be sent is held locally and offered back on return.
+  const PENDING_KEY = "rapturePendingSaves";
+
+  function loadPending() {
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+
+  function storePending(payload, label) {
+    try {
+      const queue = loadPending();
+      // One entry per session — re-saving replaces rather than stacks
+      const key = `${payload.action}|${payload.client || ""}|${payload.week || ""}|${payload.day || ""}`;
+      const filtered = queue.filter(q => q.key !== key);
+      filtered.push({ key, label, payload, savedAt: Date.now() });
+      localStorage.setItem(PENDING_KEY, JSON.stringify(filtered));
+    } catch (e) {
+      console.error("Couldn't hold the unsent save locally:", e);
+    }
+  }
+
+  function clearPending(payload) {
+    try {
+      const key = `${payload.action}|${payload.client || ""}|${payload.week || ""}|${payload.day || ""}`;
+      const queue = loadPending().filter(q => q.key !== key);
+      localStorage.setItem(PENDING_KEY, JSON.stringify(queue));
+    } catch (e) { /* nothing useful to do */ }
+  }
+
+  async function retryPendingSaves() {
+    const queue = loadPending();
+    if (!queue.length) return { sent: 0, failed: 0 };
+
+    let sent = 0, failed = 0;
+    for (const item of queue) {
+      const result = await postWithRetry(item.payload, { attempts: 2 });
+      if (result.ok && !result.data.error) { clearPending(item.payload); sent++; }
+      else failed++;
+    }
+    return { sent, failed };
+  }
+
   // ---------- Training sessions ----------
   // Reads the prescribed program from Training_Program and shows it a day at
   // a time, with whatever has already been logged from Training_Data.
@@ -6004,25 +6342,34 @@
     btn.textContent = "Saving...";
     showLoading("Saving session...");
 
+    const payload = {
+      action: "saveTrainingSession",
+      email: currentEmail,
+      passcode: currentPasscode,
+      week: week.week,
+      day: day.day,
+      exercises
+    };
+    if (isAdminView) payload.client = clientData.client;
+
     try {
-      const payload = {
-        action: "saveTrainingSession",
-        email: currentEmail,
-        passcode: currentPasscode,
-        week: week.week,
-        day: day.day,
-        exercises
-      };
-      if (isAdminView) payload.client = clientData.client;
-
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify(payload)
+      const result = await postWithRetry(payload, {
+        onAttempt: (n, total) => show(`Retrying (${n} of ${total})...`, "")
       });
-      const data = await res.json();
 
+      if (!result.ok) {
+        // Couldn't reach the server at all. Hold the entry so nothing is
+        // lost, and say plainly that it's kept.
+        storePending(payload, `${week.week} · ${day.day}`);
+        show("Couldn't reach the server, but your entries are saved on this device. " +
+             "They'll be sent automatically next time you open the app.", "error");
+        return;
+      }
+
+      const data = result.data;
       if (data.error) { show(data.error, "error"); return; }
+
+      clearPending(payload);   // sent successfully, so nothing outstanding
 
       show(
         `Saved ${data.exercisesWritten} exercise${data.exercisesWritten === 1 ? "" : "s"}.` +
@@ -6045,7 +6392,9 @@
         console.error("Saved, but couldn't refresh the view:", e);
       }
     } catch (err) {
-      show("Couldn't save — check your connection and try again.", "error");
+      // Anything unexpected still shouldn't cost the entry
+      storePending(payload, `${week.week} · ${day.day}`);
+      show("Something went wrong, but your entries are saved on this device.", "error");
       console.error(err);
     } finally {
       btn.disabled = false;
