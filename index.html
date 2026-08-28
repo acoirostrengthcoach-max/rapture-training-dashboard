@@ -3215,7 +3215,7 @@
      "weeklyCheckinSummary", "bloodResults", "bloodReference", "macrocyclePlan",
      "planOptions", "planHistory", "progressPhotos", "mealPlans", "mealPlanMeta",
      "mealPlanHistory", "foodDatabase"].forEach(k => {
-      if (!Array.isArray(clientData[k])) clientData[k] = clientData[k] || [];
+      if (!Array.isArray(clientData[k])) clientData[k] = [];
     });
 
     document.getElementById("clientNameLabel").textContent = clientData.client;
@@ -3271,15 +3271,24 @@
     renderLineChart("wrpeChart", "wrpeChartInstance", labels,
       blockWeeks.map(r => Number(r["wRPE"]) || 0), "wRPE", "#b6402c", null, "decimal");
 
-    renderExerciseSelector(blockId);
-    renderMovementBreakdown(blockId);
-    renderAllBlocksOverview();
-    renderExerciseHistoryTab();
-    renderScorecard();
-    renderCheckinsTab();
-    renderPlannerTab();
-    renderCurrentPlanBanner();
-    setupMealPlanButton();
+    /* Each section renders independently. Data arrives in stages now, so a
+       section whose scope hasn't loaded yet — or that hits a problem — must
+       not take the rest of the dashboard down with it. Failures are logged
+       rather than swallowed, so they're findable. */
+    const section = (label, fn) => {
+      try { fn(); }
+      catch (e) { console.error(`Section "${label}" failed to render:`, e); }
+    };
+
+    section("exercise selector", () => renderExerciseSelector(blockId));
+    section("movement breakdown", () => renderMovementBreakdown(blockId));
+    section("all blocks", renderAllBlocksOverview);
+    section("exercise history", renderExerciseHistoryTab);
+    section("scorecard", renderScorecard);
+    section("check-ins", renderCheckinsTab);
+    section("planner", renderPlannerTab);
+    section("plan banner", renderCurrentPlanBanner);
+    section("meal plan button", setupMealPlanButton);
 
     // Anything that couldn't be sent earlier goes out now
     retryPendingSaves().then(result => {
@@ -3288,9 +3297,9 @@
         showToast(`${result.sent} earlier ${result.sent === 1 ? "entry" : "entries"} sent through.`);
       }
     });
-    setupTrainingButton();
-    setupCalculator();
-    renderSpeciality();
+    section("training button", setupTrainingButton);
+    section("calculator", setupCalculator);
+    section("speciality", renderSpeciality);
   }
 
   // ---------- Lifetime totals scorecard ----------
@@ -5823,7 +5832,10 @@
       const scope = order[i++];
       if (loadedScopes.has(scope)) { next(); return; }
       loadScope(scope)
-        .then(() => { try { renderDashboard(); } catch (e) {} })
+        .then(() => {
+          try { renderDashboard(); }
+          catch (e) { console.error(`Re-render after loading ${scope} failed:`, e); }
+        })
         .catch(() => { /* a tab open will retry */ })
         .finally(() => setTimeout(next, 400));   // spaced out to stay responsive
     };
