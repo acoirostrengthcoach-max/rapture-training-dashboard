@@ -182,7 +182,7 @@
     border-radius: var(--radius-md); padding: 10px 6px; text-align: center;
   }
   .stat-value { font-size: 14px; font-weight: 700; color: var(--accent); white-space: normal; word-break: break-word; line-height: 1.15; }
-  .stat-label { font-size: 9.5px; color: var(--muted); margin-top: 2px; line-height: 1.25; }
+  .stat-label { font-size: 10.5px; color: var(--muted); margin-top: 2px; line-height: 1.25; }
 
   .speciality-row { margin-bottom: 20px; }
   .speciality-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
@@ -259,7 +259,7 @@
   .blood-value { font-size: 15px; font-weight: 700; color: var(--text); }
   .blood-unit { font-size: 10px; color: var(--muted); font-weight: 400; }
   .blood-flag {
-    display: inline-block; font-size: 9.5px; font-weight: 600;
+    display: inline-block; font-size: 10.5px; font-weight: 600;
     padding: 2px 7px; border-radius: var(--radius-pill); margin-top: 3px;
   }
   .blood-in { background: rgba(122,180,120,0.18); color: var(--good); }
@@ -294,7 +294,7 @@
   .meal-quick-btn:active { transform: scale(0.96); }
   .mqb-icon-svg { width: 20px; height: 20px; color: var(--accent); }
   .mqb-label {
-    font-size: 9px; color: var(--muted); font-weight: 600;
+    font-size: 10px; color: var(--muted); font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
   }
 
@@ -313,7 +313,7 @@
   .calc-row { display: flex; gap: 8px; }
   .calc-field { flex: 1; min-width: 0; margin-bottom: 10px; }
   .calc-field label {
-    display: block; font-size: 9.5px; color: var(--muted);
+    display: block; font-size: 10.5px; color: var(--muted);
     text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;
   }
   .calc-field input, .calc-field select {
@@ -352,7 +352,7 @@
   }
   .mcc-field { flex: 1; min-width: 0; }
   .mcc-field label {
-    display: block; font-size: 9.5px; color: var(--muted);
+    display: block; font-size: 10.5px; color: var(--muted);
     text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px;
   }
   .mcc-select {
@@ -442,9 +442,9 @@
   .micro-item {
     background: var(--card2); border-radius: var(--radius-sm); padding: 8px 10px;
   }
-  .micro-label { font-size: 9.5px; color: var(--muted); margin-bottom: 2px; }
+  .micro-label { font-size: 10.5px; color: var(--muted); margin-bottom: 2px; }
   .micro-value { font-size: 14px; font-weight: 700; color: var(--text); }
-  .micro-value span { font-size: 9.5px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+  .micro-value span { font-size: 10.5px; color: var(--muted); font-weight: 400; margin-left: 2px; }
 
 
   /* Macro readout — colour-coded and labelled so P/F/C can't be misread */
@@ -481,7 +481,7 @@
   .micro-bar-fill.near { background: var(--accent); }
   .micro-bar-fill.met { background: var(--good); }
   .micro-bar-fill.over { background: var(--flame); }
-  .micro-pct { font-size: 9px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+  .micro-pct { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
   .micro-item.over-ul { border: 1px solid var(--flame); }
   .micro-item.over-ul .micro-pct { color: var(--bad); }
 
@@ -516,7 +516,7 @@
     font-size: 11.5px; padding: 4px 0; color: var(--muted);
   }
   .mh-badge {
-    font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-pill);
+    font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: var(--radius-pill);
     text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;
   }
   .mh-badge.added { background: rgba(122,180,120,0.18); color: var(--good); }
@@ -559,7 +559,7 @@
     gap: 3px; cursor: default; border: 1px dashed var(--border);
   }
   .photo-slot.empty span { font-size: 11px; color: var(--muted); font-weight: 600; }
-  .photo-slot.empty small { font-size: 9px; color: var(--muted); opacity: 0.7; }
+  .photo-slot.empty small { font-size: 10px; color: var(--muted); opacity: 0.7; }
   .photo-slot-label {
     position: absolute; bottom: 0; left: 0; right: 0;
     background: linear-gradient(transparent, rgba(10,9,8,0.85));
@@ -691,6 +691,32 @@
     50% { opacity: 1; }
   }
 
+
+  /* Date stepper on the check-in form. Previously reused .day-nav-btn, which
+     is a fixed 38px circle built for the training day arrows — text labels
+     overflowed it. */
+  .date-nav-row {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 8px; align-items: center;
+  }
+  .date-nav-row input[type="date"] { min-width: 0; margin-bottom: 0; }
+  .date-nav-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--card2); color: var(--accent);
+    border: 1px solid var(--border); border-radius: var(--radius-pill);
+    padding: 9px 13px; font-size: 12px; font-weight: 600;
+    white-space: nowrap; flex-shrink: 0;
+    transition: border-color var(--ease-quick), transform var(--ease-quick);
+  }
+  .date-nav-btn:hover { border-color: var(--accent-dim); background: var(--card2); }
+  .date-nav-btn:active { transform: scale(0.95); }
+
+  @media (max-width: 380px) {
+    /* Arrows alone on the narrowest screens, so the date field keeps its room */
+    .date-nav-btn .dnb-label { display: none; }
+    .date-nav-btn { padding: 9px 11px; }
+  }
+
   /* ---------- Training sessions ---------- */
   .session-entry-btn {
     width: 100%; display: flex; align-items: center; justify-content: space-between;
@@ -785,7 +811,7 @@
   .ex-card-title { flex: 1; min-width: 0; }
   .ex-name { font-size: 14px; font-weight: 700; line-height: 1.3; }
   .ex-movement {
-    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    font-size: 10.5px; color: var(--muted); text-transform: uppercase;
     letter-spacing: 0.5px; margin-top: 3px;
   }
   button.ex-link {
@@ -811,7 +837,7 @@
   }
   .ex-cue b {
     color: var(--text); font-weight: 700; margin-right: 4px;
-    text-transform: uppercase; font-size: 8.5px; letter-spacing: 0.5px;
+    text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
   }
 
   /* ---- Set entry ---- */
@@ -820,7 +846,7 @@
     display: grid; grid-template-columns: 30px 1fr 1fr; gap: 9px; align-items: center;
   }
   .set-head {
-    font-size: 9px; color: var(--muted); text-transform: uppercase;
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
     letter-spacing: 0.6px; margin-bottom: 7px; padding: 0 2px;
   }
   .set-head span { text-align: center; }
@@ -869,7 +895,7 @@
     position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
     background: transparent; border: 1px solid var(--border);
     color: var(--muted); border-radius: var(--radius-pill);
-    font-size: 9.5px; font-weight: 700; letter-spacing: 0.5px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px;
     padding: 4px 8px; line-height: 1;
     transition: all var(--ease-quick);
   }
@@ -885,7 +911,7 @@
     align-items: center; margin-top: 8px;
   }
   .ex-rpe-row label {
-    font-size: 9px; color: var(--muted); text-transform: uppercase;
+    font-size: 10px; color: var(--muted); text-transform: uppercase;
     letter-spacing: 0.6px; grid-column: 1 / 3; text-align: right;
     padding-right: 4px;
   }
@@ -964,7 +990,7 @@
   .shop-check { width: auto; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
   .shop-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; }
   .shop-meals {
-    display: block; font-size: 9.5px; color: var(--muted);
+    display: block; font-size: 10.5px; color: var(--muted);
     font-weight: 400; margin-top: 2px;
   }
   .shop-qty {
@@ -991,7 +1017,7 @@
     border-radius: var(--radius-md); padding: 10px 6px; min-width: 0;
   }
   .dt-label {
-    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    font-size: 10.5px; color: var(--muted); text-transform: uppercase;
     letter-spacing: 0.4px; margin-bottom: 4px;
   }
   .dt-actual { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.1; }
@@ -1071,7 +1097,7 @@
   .plan-block-name .unplanned { color: var(--muted); font-weight: 400; font-style: italic; }
   .plan-week-date { font-size: 10px; color: var(--muted); margin-top: 1px; }
   .current-badge {
-    font-size: 8.5px; background: var(--accent); color: var(--bg);
+    font-size: 10px; background: var(--accent); color: var(--bg);
     padding: 1px 6px; border-radius: var(--radius-pill); margin-left: 6px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.3px;
   }
@@ -1103,18 +1129,18 @@
     gap: 1px; flex-shrink: 0; line-height: 1.15;
   }
   .pai-vol { font-size: 11.5px; font-weight: 700; color: var(--accent); }
-  .pai-rpe { font-size: 9.5px; color: var(--muted); }
+  .pai-rpe { font-size: 10.5px; color: var(--muted); }
   .pd-actual {
     margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border);
   }
   .pd-actual-head {
-    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    font-size: 10.5px; color: var(--muted); text-transform: uppercase;
     letter-spacing: 0.4px; margin-bottom: 7px;
   }
   .pd-actual-stats { display: flex; gap: 16px; }
   .pd-stat { display: flex; flex-direction: column; }
   .pd-stat b { font-size: 15px; color: var(--accent); font-weight: 700; line-height: 1.1; }
-  .pd-stat span { font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+  .pd-stat span { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
   .tag-low-text { color: var(--accent) !important; }
   .tag-moderate-text { color: var(--warn) !important; }
   .tag-high-text { color: var(--flame) !important; }
@@ -1167,7 +1193,7 @@
   .year-strip-legend {
     display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 9px;
   }
-  .ysl-item { display: flex; align-items: center; gap: 4px; font-size: 9.5px; color: var(--muted); }
+  .ysl-item { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--muted); }
   .ysl-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
   /* ---------- Planner toolbar ---------- */
@@ -1533,13 +1559,13 @@
     .scorecard { grid-template-columns: repeat(4, 1fr); gap: 6px; }
     .stat-chip { padding: 8px 4px; }
     .stat-value { font-size: 13px; }
-    .stat-label { font-size: 8.5px; }
+    .stat-label { font-size: 10px; }
 
     .day-totals { gap: 6px; }
     .dt-col { padding: 8px 4px; }
     .dt-actual { font-size: 15px; }
-    .dt-label { font-size: 8.5px; }
-    .dt-target, .dt-diff { font-size: 9px; }
+    .dt-label { font-size: 10px; }
+    .dt-target, .dt-diff { font-size: 10px; }
 
     /* Editor rows go full-width per control rather than side by side */
     .edit-item { grid-template-columns: 1fr; gap: 5px; }
@@ -1830,7 +1856,7 @@
     .day-nav-tabs { gap: 4px; }
     .day-tab { font-size: 12px; }
     .set-head, .set-row, .ex-rpe-row { grid-template-columns: 22px 1fr 1fr; gap: 6px; }
-    .ex-cue { font-size: 9.5px; padding: 3px 8px; }
+    .ex-cue { font-size: 10.5px; padding: 3px 8px; }
   }
 
   /* Landscape on a phone — vertical space is the constraint, not width */
@@ -1847,6 +1873,58 @@
       transition-duration: 0.01ms !important;
     }
   }
+
+
+  /* ===============================================================
+     CONTAINMENT
+     A flex or grid child defaults to min-width:auto, meaning it refuses
+     to shrink below its content — which is how buttons and labels end up
+     pushing outside their container on narrow screens.
+
+     These rules make shrinking the default and handle the overflow
+     honestly: wrap where there's room, truncate where there isn't.
+     =============================================================== */
+
+  /* Nothing should ever push the page sideways */
+  html, body { overflow-x: hidden; max-width: 100%; }
+
+  /* Flex and grid children shrink by default */
+  .tab, .fatigue-tile, .plan-action-btn, .photo-upload-btn, .photo-slot,
+  .shot-tab, .day-tab, .shop-period, .plan-tool-btn, .pr-tile, .target-stat,
+  .meal-quick-btn, .stat-chip, .dt-col, .micro-item, .checkin-tile,
+  .compare-side, .calc-field, .mcc-field, .form-field, .ex-main, .ex-card-title,
+  .seb-left, .mi-name, .shop-name, .ph-entry, .mh-entry {
+    min-width: 0;
+  }
+
+  /* Long single words — food names, exercise names — break rather than
+     forcing their container wider */
+  .ex-name, .mi-name, .shop-name, .micro-label, .stat-label,
+  .checkin-tile-name, .meal-name, .plan-block-name, .cc-name {
+    overflow-wrap: anywhere;
+  }
+
+  /* Values that must stay on one line get truncated with an ellipsis
+     rather than overflowing */
+  .seb-title, .seb-sub, .profile-name, .or-label, .dt-target {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Button rows wrap onto a second line instead of overflowing */
+  .plan-action-row, .panel-toggle-row, .shopping-controls,
+  .compare-shots, .photo-mode-row, .plan-toolbar-row {
+    flex-wrap: wrap;
+  }
+
+  /* Tables and wide content scroll within their card, not the page */
+  .chart-card { overflow: hidden; }
+  .chart-scroll { max-width: 100%; }
+
+  /* Inputs never exceed their container */
+  input, select, textarea, button { max-width: 100%; }
+
+  /* Long labels in the planner detail wrap rather than pushing the value out */
+  .pd-label { white-space: normal; }
 
 </style>
 </head>
@@ -2313,9 +2391,13 @@
       <div class="form-field">
         <label for="ciDate">Date</label>
         <div class="date-nav-row">
-          <button class="day-nav-btn" id="ciPrevDayBtn" type="button">← Prev Day</button>
+          <button class="date-nav-btn" id="ciPrevDayBtn" type="button">
+            <span aria-hidden="true">←</span><span class="dnb-label">Prev</span>
+          </button>
           <input type="date" id="ciDate">
-          <button class="day-nav-btn" id="ciNextDayBtn" type="button">Next Day →</button>
+          <button class="date-nav-btn" id="ciNextDayBtn" type="button">
+            <span class="dnb-label">Next</span><span aria-hidden="true">→</span>
+          </button>
         </div>
         <div class="checkin-form-msg" id="ciExistingNote" style="display:none;">Editing an existing entry for this date — saving will update it.</div>
       </div>
