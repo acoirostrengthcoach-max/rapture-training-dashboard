@@ -527,6 +527,86 @@
   .mh-values s { opacity: 0.55; }
   .mh-values b { color: var(--accent); }
 
+
+  /* ---------- Daily check-in view ---------- */
+  .week-nav {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 10px; align-items: center; margin-bottom: 14px;
+  }
+  .week-nav-label { text-align: center; min-width: 0; }
+  .wnl-range { display: block; font-size: 13px; font-weight: 700; color: var(--text); }
+  .wnl-sub { display: block; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  .date-nav-btn:disabled { opacity: 0.3; }
+
+  .day-rows { display: flex; flex-direction: column; gap: 8px; }
+  .day-row {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 12px 13px;
+  }
+  .day-row.today { border-color: var(--accent-dim); }
+  .day-row.empty { opacity: 0.55; }
+  .day-row-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 8px; margin-bottom: 9px;
+  }
+  .dr-name { font-size: 13px; font-weight: 700; }
+  .dr-today {
+    font-size: 9px; background: var(--accent); color: var(--bg);
+    padding: 2px 7px; border-radius: var(--radius-pill);
+    text-transform: uppercase; letter-spacing: 0.4px; margin-left: 5px;
+  }
+  .dr-date { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+  .dr-empty { font-size: 11.5px; color: var(--muted); font-style: italic; }
+
+  .dr-metrics {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px;
+  }
+  .dr-metric {
+    background: var(--card2); border-radius: var(--radius-sm);
+    padding: 7px 8px; text-align: center; min-width: 0;
+    border: 1px solid transparent;
+  }
+  .drm-label {
+    display: block; font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .drm-value {
+    display: block; font-size: 13.5px; font-weight: 700;
+    color: var(--text); margin-top: 2px;
+  }
+  /* Grading — a tint plus a border, so it reads without relying on colour alone */
+  .dr-metric.good { border-color: rgba(122,180,120,0.4); background: rgba(122,180,120,0.1); }
+  .dr-metric.good .drm-value { color: var(--good); }
+  .dr-metric.warn { border-color: rgba(212,162,76,0.4); background: rgba(212,162,76,0.09); }
+  .dr-metric.warn .drm-value { color: var(--accent); }
+  .dr-metric.bad { border-color: rgba(182,64,44,0.4); background: rgba(182,64,44,0.1); }
+  .dr-metric.bad .drm-value { color: var(--bad); }
+
+  .dr-note {
+    margin-top: 8px; font-size: 10.5px; color: var(--muted);
+    background: var(--card2); border-radius: var(--radius-pill);
+    padding: 4px 10px; display: inline-block;
+  }
+
+  .daily-legend {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font-size: 10.5px; color: var(--muted); margin-top: 14px;
+    background: var(--card2); border-radius: var(--radius-md); padding: 10px 12px;
+  }
+  .dl-swatch {
+    width: 10px; height: 10px; border-radius: 3px; display: inline-block;
+  }
+  .dl-swatch.good { background: var(--good); }
+  .dl-swatch.warn { background: var(--accent); }
+  .dl-swatch.bad { background: var(--bad); }
+  .dl-note { flex: 1 1 100%; margin-top: 4px; opacity: 0.8; line-height: 1.5; }
+
+  /* Wider screens fit more metrics per row */
+  body.wide-mode .dr-metrics {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  }
+
   /* ---------- Progress photos ---------- */
   .photo-mode-row { display: flex; gap: 8px; margin-bottom: 14px; }
 
@@ -2365,6 +2445,10 @@
           <div class="checkin-tile-icon">🩸</div>
           <div class="checkin-tile-name">Bloods</div>
         </div>
+        <div class="checkin-tile coach-only" data-category="daily">
+          <div class="checkin-tile-icon">📆</div>
+          <div class="checkin-tile-name">Daily View</div>
+        </div>
         <div class="checkin-tile" data-category="photos">
           <div class="checkin-tile-icon">📷</div>
           <div class="checkin-tile-name">Photos</div>
@@ -3311,6 +3395,13 @@
   // Everything tied to training blocks — the four training tabs, lifetime
   // training stats, and training-specific check-in fields — is hidden,
   // since none of it will ever have data for them.
+  // Some Check-Ins tiles are review tools rather than client-facing
+  function configureCoachOnlyTiles() {
+    document.querySelectorAll(".checkin-tile.coach-only").forEach(t => {
+      t.style.display = isAdminView ? "" : "none";
+    });
+  }
+
   function configureUiForClientType() {
     const isNutritionOnly = isNutritionOnlyClient();
     const trainingTabNames = ["currentBlock", "latestWeek", "allBlocks", "exerciseHistory"];
@@ -3454,6 +3545,7 @@
     section("exercise history", renderExerciseHistoryTab);
     section("scorecard", renderScorecard);
     section("check-ins", renderCheckinsTab);
+    section("coach tiles", configureCoachOnlyTiles);
     section("planner", renderPlannerTab);
     section("plan banner", renderCurrentPlanBanner);
     section("meal plan button", setupMealPlanButton);
@@ -5503,6 +5595,200 @@
   }
 
 
+
+
+  // ---------- Daily check-in view (coach only) ----------
+  // The weekly charts show trends; this shows the days that made them up.
+  // Useful when a week looks off and you want to see which day caused it.
+
+  /* How each metric is read. Direction says which way is better:
+       "high"  more is better
+       "low"   less is better
+       "range" a target band, given as [min, max]
+       "none"  shown without judgement
+     These reflect how the app already frames things elsewhere — stress is
+     scored with 5 as calmest, matching the existing wellbeing charts. */
+  const DAILY_METRICS = [
+    { key: "Calories",        label: "Cals",    dir: "target", unit: "" },
+    { key: "Protein",         label: "P",       dir: "target", unit: "g", target: "proteinTarget" },
+    { key: "Fats",            label: "F",       dir: "target", unit: "g", target: "fatTarget" },
+    { key: "Carbs",           label: "C",       dir: "target", unit: "g", target: "carbTarget" },
+    { key: "Daily Steps",     label: "Steps",   dir: "high",   unit: "", good: 8000, poor: 4000 },
+    { key: "Sleep Hours",     label: "Sleep",   dir: "range",  unit: "h", range: [7, 9] },
+    { key: "Sleep Quality",   label: "Qual",    dir: "high",   unit: "/5", good: 4, poor: 2 },
+    { key: "Daily Energy",    label: "Energy",  dir: "high",   unit: "/5", good: 4, poor: 2 },
+    { key: "Training Energy", label: "Tr En",   dir: "high",   unit: "/5", good: 4, poor: 2 },
+    { key: "Stress",          label: "Stress",  dir: "high",   unit: "/5", good: 4, poor: 2 },
+    { key: "Soreness",        label: "Sore",    dir: "high",   unit: "/5", good: 4, poor: 2 },
+    { key: "Focus",           label: "Focus",   dir: "high",   unit: "/5", good: 4, poor: 2 },
+    { key: "Water",           label: "Water",   dir: "high",   unit: "L", good: 3, poor: 1.5 },
+    { key: "Weight",          label: "Weight",  dir: "none",   unit: "kg" }
+  ];
+
+  let dailyWeekOffset = 0;   // 0 = current week, -1 = last week, and so on
+
+  function mondayOf(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;   // Sunday belongs to the week before
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /* Grades a value against its metric definition, returning good, warn, bad
+     or an empty string where no judgement applies. */
+  function gradeMetric(metric, value, targets) {
+    if (value === "" || value === null || value === undefined) return "";
+    const v = Number(value);
+    if (isNaN(v)) return "";
+
+    if (metric.dir === "none") return "";
+
+    if (metric.dir === "target") {
+      const targetKey = metric.target;
+      const target = targetKey ? Number(targets[targetKey]) : Number(targets.calories);
+      if (!target) return "";
+      const off = Math.abs(v - target) / target;
+      if (off <= 0.05) return "good";
+      if (off <= 0.15) return "warn";
+      return "bad";
+    }
+
+    if (metric.dir === "range") {
+      const [lo, hi] = metric.range;
+      if (v >= lo && v <= hi) return "good";
+      if (v >= lo - 1 && v <= hi + 1) return "warn";
+      return "bad";
+    }
+
+    if (metric.dir === "high") {
+      if (v >= metric.good) return "good";
+      if (v >= metric.poor) return "warn";
+      return "bad";
+    }
+
+    if (metric.dir === "low") {
+      if (v <= metric.good) return "good";
+      if (v <= metric.poor) return "warn";
+      return "bad";
+    }
+    return "";
+  }
+
+  function renderDailyView(content) {
+    const entries = clientData.dailyCheckins || [];
+    if (!entries.length) {
+      content.innerHTML = `<div class="chart-empty">No daily check-ins logged yet.</div>`;
+      return;
+    }
+
+    const thisMonday = mondayOf(new Date());
+    const weekStart = new Date(thisMonday);
+    weekStart.setDate(thisMonday.getDate() + dailyWeekOffset * 7);
+
+    const byDate = {};
+    entries.forEach(r => {
+      const d = parseDate(r["Date"]);
+      if (d) byDate[formatDMY(d)] = r;
+    });
+
+    // How far back there's anything to look at
+    const allDates = entries.map(r => parseDate(r["Date"])).filter(Boolean).sort((a, b) => a - b);
+    const earliestMonday = allDates.length ? mondayOf(allDates[0]) : thisMonday;
+    const canGoBack = weekStart > earliestMonday;
+    const canGoForward = dailyWeekOffset < 0;
+
+    const targets = getTargetsForDate(weekStart.toISOString().split("T")[0]);
+
+    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    let dayCards = "";
+    let loggedCount = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const entry = byDate[formatDMY(d)];
+      const isToday = d.getTime() === today.getTime();
+      const isFuture = d > today;
+
+      if (entry) loggedCount++;
+
+      if (!entry) {
+        dayCards += `
+          <div class="day-row empty${isToday ? " today" : ""}">
+            <div class="day-row-head">
+              <span class="dr-name">${dayNames[i]}</span>
+              <span class="dr-date">${formatDMY(d)}</span>
+            </div>
+            <div class="dr-empty">${isFuture ? "—" : "Not logged"}</div>
+          </div>`;
+        continue;
+      }
+
+      const cells = DAILY_METRICS.map(m => {
+        const raw = entry[m.key];
+        if (raw === "" || raw === null || raw === undefined) return "";
+        const grade = gradeMetric(m, raw, targets);
+        const num = Number(raw);
+        const shown = isNaN(num) ? raw : (num % 1 === 0 ? num : roundTo(num, 1));
+        return `
+          <div class="dr-metric ${grade}">
+            <span class="drm-label">${m.label}</span>
+            <span class="drm-value">${shown}${m.unit}</span>
+          </div>`;
+      }).filter(Boolean).join("");
+
+      const note = entry["Menstrual Phase"] ? `<div class="dr-note">${entry["Menstrual Phase"]}</div>` : "";
+
+      dayCards += `
+        <div class="day-row${isToday ? " today" : ""}">
+          <div class="day-row-head">
+            <span class="dr-name">${dayNames[i]}${isToday ? ' <span class="dr-today">today</span>' : ""}</span>
+            <span class="dr-date">${formatDMY(d)}</span>
+          </div>
+          <div class="dr-metrics">${cells}</div>
+          ${note}
+        </div>`;
+    }
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    content.innerHTML = `
+      <div class="week-nav">
+        <button class="date-nav-btn" id="dailyPrevWeek"${canGoBack ? "" : " disabled"}>
+          <span aria-hidden="true">←</span><span class="dnb-label">Earlier</span>
+        </button>
+        <div class="week-nav-label">
+          <span class="wnl-range">${formatDMY(weekStart)} – ${formatDMY(weekEnd)}</span>
+          <span class="wnl-sub">${
+            dailyWeekOffset === 0 ? "This week"
+            : dailyWeekOffset === -1 ? "Last week"
+            : `${Math.abs(dailyWeekOffset)} weeks ago`
+          } · ${loggedCount} of 7 logged</span>
+        </div>
+        <button class="date-nav-btn" id="dailyNextWeek"${canGoForward ? "" : " disabled"}>
+          <span class="dnb-label">Later</span><span aria-hidden="true">→</span>
+        </button>
+      </div>
+
+      <div class="day-rows">${dayCards}</div>
+
+      <p class="daily-legend">
+        <span class="dl-swatch good"></span> on track
+        <span class="dl-swatch warn"></span> slightly off
+        <span class="dl-swatch bad"></span> well off
+        <span class="dl-note">Macros are graded against this week's targets. Stress and soreness follow the app's existing scale, where 5 is best.</span>
+      </p>`;
+
+    const prev = document.getElementById("dailyPrevWeek");
+    const next = document.getElementById("dailyNextWeek");
+    if (prev) prev.onclick = () => { if (canGoBack) { dailyWeekOffset--; renderDailyView(content); } };
+    if (next) next.onclick = () => { if (canGoForward) { dailyWeekOffset++; renderDailyView(content); } };
+  }
 
   // ---------- Progress photos ----------
   // Full images live in Drive and are fetched only when viewed or compared.
@@ -8417,7 +8703,7 @@
   const CHECKIN_CATEGORY_TITLES = {
     nutrition: "Nutrition", measurements: "Measurements", expenditure: "Expenditure",
     sleep: "Sleep & Recovery", mood: "Energy & Mood", digestion: "Digestion",
-    bloods: "Blood Markers", vitals: "Vitals", photos: "Progress Photos"
+    bloods: "Blood Markers", vitals: "Vitals", photos: "Progress Photos", daily: "Daily View"
   };
 
   function showCheckinDetail(category) {
@@ -8433,6 +8719,11 @@
     if (category === "bloods") {
       document.querySelector("#checkinDetail .block-sub").textContent = "Results by test date";
       renderBloodsView(content);
+      return;
+    }
+    if (category === "daily") {
+      document.querySelector("#checkinDetail .block-sub").textContent = "Day by day, one week at a time";
+      renderDailyView(content);
       return;
     }
     // Photos come from Drive rather than the check-in summary
