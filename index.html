@@ -4741,9 +4741,12 @@
       }
     }
 
-    // No dated week covers this date — fall back to counting from the start
-    if (!planStart) return null;
-    const weeksElapsed = Math.floor((targetDate - planStart) / (7 * 86400000));
+    /* No dated week covers this date. Count from the plan's own anchor
+       rather than Plan Start Date — the two can be weeks apart, and using
+       the wrong one put "now" on the wrong week entirely. */
+    const anchor = planAnchorDate(1, planStart, null) || planStart;
+    if (!anchor) return null;
+    const weeksElapsed = Math.floor((targetDate - anchor) / (7 * 86400000));
     if (weeksElapsed < 0) return null;
     return {
       year: Math.floor(weeksElapsed / 52) + 1,
@@ -4752,15 +4755,39 @@
     };
   }
 
-  // Returns the stored date for a given plan week, falling back to counting
-  // forward from the year's nominal start when that week has no date yet.
+  /* The plan's own week 1 date, which anchors any week that has no row yet.
+
+     Plan Start Date on the Clients tab records when a client's plan was set
+     up, which isn't necessarily when their programming begins — a client can
+     finish an old block first. Using it to compute missing weeks produced
+     dates that collided with real ones: with a 12-week gap, week 13 computed
+     to week 1's date, week 14 to week 2's, and so on. The plan's first
+     stored week is the correct anchor. */
+  function planAnchorDate(year, planStart, yearStart) {
+    const rows = (clientData.macrocyclePlan || [])
+      .filter(r => Number(r["Plan Year"] || 1) === year)
+      .map(r => ({ week: Number(r["Week Number"]), date: parseDate(r["Week Start"]) }))
+      .filter(r => r.date && r.week)
+      .sort((a, b) => a.week - b.week);
+
+    if (rows.length) {
+      // Wind back to what week 1 would be, in case week 1 itself has no row
+      const d = new Date(rows[0].date);
+      d.setDate(d.getDate() - (rows[0].week - 1) * 7);
+      return d;
+    }
+    return yearStart || planStart || null;
+  }
+
+  // The stored date for a plan week, or one derived from the plan's own
+  // anchor when that week hasn't been filled in yet.
   function getWeekStartDate(planStart, year, week, yearStart) {
     const row = planRowFor(year, week);
     if (row) {
       const stored = parseDate(row["Week Start"]);
       if (stored) return stored;
     }
-    const base = yearStart || planStart;
+    const base = planAnchorDate(year, planStart, yearStart);
     if (!base) return null;
     const d = new Date(base);
     d.setDate(base.getDate() + (week - 1) * 7);
