@@ -839,6 +839,15 @@
     padding: 10px 12px; border-radius: var(--radius-sm); margin: 0 0 14px;
   }
 
+
+  /* Eight fields in the add-food form — three columns on desktop, two on
+     phones, so the whole thing stays visible without much scrolling. */
+  .af-macro-row { grid-template-columns: repeat(2, 1fr); }
+  body.wide-mode .af-macro-row { grid-template-columns: repeat(3, 1fr); }
+  .af-macro-row .calc-field { margin-bottom: 10px; }
+  .af-macro-row label { font-size: 10.5px; }
+  .af-macro-row input { padding: 9px 10px; }
+
   @media (max-width: 380px) {
     .af-macro-row { grid-template-columns: 1fr; }
   }
@@ -7175,16 +7184,32 @@
             <input type="number" step="0.1" min="0" id="afProtein">
           </div>
           <div class="calc-field">
-            <label>Fat (g)</label>
+            <label>Fat, total (g)</label>
             <input type="number" step="0.1" min="0" id="afFat">
+          </div>
+          <div class="calc-field">
+            <label>— saturated (g)</label>
+            <input type="number" step="0.1" min="0" id="afSatFat" placeholder="optional">
           </div>
           <div class="calc-field">
             <label>Carbs (g)</label>
             <input type="number" step="0.1" min="0" id="afCarbs">
           </div>
           <div class="calc-field">
+            <label>— sugars (g)</label>
+            <input type="number" step="0.1" min="0" id="afSugars" placeholder="optional">
+          </div>
+          <div class="calc-field">
             <label>Fibre (g)</label>
             <input type="number" step="0.1" min="0" id="afFibre" placeholder="optional">
+          </div>
+          <div class="calc-field">
+            <label>Sodium (mg)</label>
+            <input type="number" step="1" min="0" id="afSodium" placeholder="optional">
+          </div>
+          <div class="calc-field">
+            <label>Calcium (mg)</label>
+            <input type="number" step="1" min="0" id="afCalcium" placeholder="optional">
           </div>
         </div>
 
@@ -7240,6 +7265,15 @@
     const name = document.getElementById("afName").value.trim();
     if (!name) { show("Give the food a name.", "error"); return; }
 
+    // Sub-values can't exceed their parent — the usual sign of a misread label
+    const fat = Number(document.getElementById("afFat").value) || 0;
+    const sat = Number(document.getElementById("afSatFat").value) || 0;
+    const carbs = Number(document.getElementById("afCarbs").value) || 0;
+    const sugars = Number(document.getElementById("afSugars").value) || 0;
+
+    if (sat > fat) { show("Saturated fat can't exceed total fat.", "error"); return; }
+    if (sugars > carbs) { show("Sugars can't exceed total carbs.", "error"); return; }
+
     const payload = {
       action: "addFood",
       email: currentEmail,
@@ -7248,8 +7282,12 @@
       name,
       protein: document.getElementById("afProtein").value,
       fat: document.getElementById("afFat").value,
+      satFat: document.getElementById("afSatFat").value,
       carbs: document.getElementById("afCarbs").value,
-      fibre: document.getElementById("afFibre").value
+      sugars: document.getElementById("afSugars").value,
+      fibre: document.getElementById("afFibre").value,
+      sodium: document.getElementById("afSodium").value,
+      calcium: document.getElementById("afCalcium").value
     };
 
     btn.disabled = true;
@@ -7266,10 +7304,25 @@
       clientData.foodDatabase.push(result.data.food);
 
       closeFn();
-      showToast(`"${name}" added to the database.`);
-      // Rebuild the editor so the new food appears in every picker
-      if (mealEditorContext) {
-        renderMealEditor(mealEditorContext.container, mealEditorContext.planName);
+
+      /* Adding the option to the existing datalists rather than rebuilding
+         the whole editor. A full re-render regenerates every picker with the
+         entire database in it, which is noticeably slow — and unnecessary,
+         since only one option has changed. */
+      const food = result.data.food;
+      document.querySelectorAll("datalist").forEach(dl => {
+        // Only lists for this food's category, plus any unfiltered ones
+        const opt = document.createElement("option");
+        opt.value = food.n;
+        dl.appendChild(opt);
+      });
+
+      const extras = (result.data.savedFields || []).length;
+      showToast(`"${name}" added${extras ? ` with ${extras} extra nutrient${extras === 1 ? "" : "s"}` : ""}.`);
+
+      if ((result.data.unmatchedFields || []).length) {
+        console.warn("Couldn't find database columns for:",
+                     result.data.unmatchedFields.join(", "));
       }
     } catch (err) {
       show("Something went wrong adding that food.", "error");
