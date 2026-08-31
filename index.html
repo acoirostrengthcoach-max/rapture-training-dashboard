@@ -797,6 +797,52 @@
     .date-nav-btn { padding: 9px 11px; }
   }
 
+
+  /* ---------- Add food form ---------- */
+  .ei-newfood {
+    background: transparent; color: var(--muted);
+    border: 1px dashed var(--border); border-radius: var(--radius-pill);
+    padding: 7px 13px; font-size: 11.5px; font-weight: 600;
+    margin-left: 6px;
+  }
+  .ei-newfood:hover { color: var(--accent); border-color: var(--accent-dim); background: transparent; }
+
+  .add-food-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px;
+    width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto;
+  }
+  .afc-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .afc-head h3 { margin: 0; font-size: 15px; }
+  .afc-head .photo-overlay-close { position: static; width: 32px; height: 32px; font-size: 22px; }
+
+  .af-hint { font-size: 10.5px; color: var(--muted); margin: 5px 0 0; font-style: italic; }
+  .af-per100 {
+    font-size: 10.5px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin: 16px 0 8px; font-weight: 700;
+  }
+  .af-macro-row {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 12px;
+  }
+  .af-energy {
+    background: var(--card2); border-radius: var(--radius-md);
+    padding: 11px 14px; font-size: 12.5px; font-weight: 600;
+    color: var(--accent); text-align: center; margin: 6px 0 14px;
+  }
+  .af-energy.over { color: var(--bad); background: rgba(182,64,44,0.12); }
+  .af-note {
+    font-size: 10.5px; color: var(--muted); line-height: 1.55;
+    background: var(--card2); border-left: 2px solid var(--accent-dim);
+    padding: 10px 12px; border-radius: var(--radius-sm); margin: 0 0 14px;
+  }
+
+  @media (max-width: 380px) {
+    .af-macro-row { grid-template-columns: 1fr; }
+  }
+
   /* ---------- Training sessions ---------- */
   .session-entry-btn {
     width: 100%; display: flex; align-items: center; justify-content: space-between;
@@ -2011,6 +2057,108 @@
      client's sheet, so there's nothing to select between. */
   .plan-year-select, .plan-year-row { display: none !important; }
 
+
+  /* ---------- Coach tile status ---------- */
+  .ct-phase {
+    font-size: 10.5px; color: var(--accent); margin-top: 5px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ct-stats {
+    display: flex; gap: 6px; margin-top: 9px; justify-content: center;
+    flex-wrap: wrap;
+  }
+  .ct-stat {
+    display: flex; flex-direction: column; align-items: center;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 5px 8px; min-width: 0;
+  }
+  .ct-stat b { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.1; }
+  .ct-stat span { font-size: 10px; color: var(--muted); margin-top: 1px; white-space: nowrap; }
+  .ct-stat.good { border-color: rgba(122,180,120,0.4); }
+  .ct-stat.good b { color: var(--good); }
+  .ct-stat.warn { border-color: rgba(212,162,76,0.4); }
+  .ct-stat.warn b { color: var(--accent); }
+  .ct-stat.bad { border-color: rgba(182,64,44,0.4); }
+  .ct-stat.bad b { color: var(--bad); }
+
+  /* ===============================================================
+     DESKTOP — plan and meal planning
+     Both are dense, list-heavy screens that were simply stretched to
+     the wider container rather than using it. These give each the shape
+     that suits the extra room.
+     =============================================================== */
+
+  /* ---- Plan page ---- */
+  body.wide-mode #plannerWeeks {
+    column-count: 2; column-gap: 20px;
+  }
+  body.wide-mode .plan-week {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+    margin-bottom: 12px;
+  }
+  /* Week rows can afford to show more per line */
+  body.wide-mode .plan-week { padding: 13px 15px; }
+  body.wide-mode .year-strip { height: 34px; }
+  body.wide-mode .ys-week { font-size: 10px; }
+
+  /* Editor and history panels span the full width rather than sitting
+     in one narrow column */
+  body.wide-mode #planEditor,
+  body.wide-mode #planCopyPanel,
+  body.wide-mode #planHistoryPanel {
+    column-span: all;
+  }
+  body.wide-mode #planEditor .form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  /* ---- Meal planning ---- */
+  body.wide-mode #mealPlanPanel { max-width: 1240px; margin: 0 auto; }
+
+  /* Meals side by side instead of one long scroll */
+  body.wide-mode #mealPlanContent {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 16px; align-items: start;
+  }
+  body.wide-mode .meal-block { margin-bottom: 0; }
+
+  /* Daily totals stay full width and become a proper summary bar */
+  body.wide-mode .day-totals {
+    grid-column: 1 / -1;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  body.wide-mode .dt-col { padding: 14px; }
+  body.wide-mode .dt-actual { font-size: 22px; }
+
+  /* The editor gets two columns of meals */
+  /* Anything that summarises or controls the plan spans the full width;
+     the meal blocks themselves flow into columns. */
+  body.wide-mode #mealPlanContent > .day-totals,
+  body.wide-mode #mealPlanContent > .edit-actions,
+  body.wide-mode #mealPlanContent > .meal-config,
+  body.wide-mode #mealPlanContent > .meal-desc,
+  body.wide-mode #mealPlanContent > #microPanel,
+  body.wide-mode #mealPlanContent > #shoppingPanel,
+  body.wide-mode #mealPlanContent > .panel-toggle-row,
+  body.wide-mode #mealPlanContent > #mealHistoryWrap,
+  body.wide-mode #mealPlanContent > #duplicateWrap,
+  body.wide-mode #mealPlanContent > .chart-empty {
+    grid-column: 1 / -1;
+  }
+
+  /* Micronutrients in a wider grid */
+  body.wide-mode .micro-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  /* Shopping list in two columns */
+  body.wide-mode #shoppingPanel {
+    column-count: 2; column-gap: 20px;
+  }
+  body.wide-mode #shoppingPanel .chart-card {
+    break-inside: avoid; -webkit-column-break-inside: avoid;
+  }
+
 </style>
 </head>
 <body>
@@ -3085,11 +3233,42 @@
       }
 
       const typeTagHtml = isNutritionOnly ? `<span class="tag tag-nutrition">Nutrition</span>` : "";
+      const s = c.status || {};
+
+      /* Check-in count for the week, coloured by how well they're keeping up.
+         This is the single most useful signal on the list — it's what tells
+         you who needs chasing before you open anyone. */
+      const checkinClass = s.checkinsThisWeek >= 5 ? "good"
+                         : s.checkinsThisWeek >= 3 ? "warn" : "bad";
+
+      const stats = [];
+      stats.push(`<span class="ct-stat ${checkinClass}">
+        <b>${s.checkinsThisWeek || 0}</b><span>check-ins</span></span>`);
+
+      if (!isNutritionOnly && s.sessionsRemaining !== null && s.sessionsRemaining !== undefined) {
+        const cls = s.sessionsRemaining === 0 ? "good" : "";
+        stats.push(`<span class="ct-stat ${cls}">
+          <b>${s.sessionsRemaining}</b><span>to log</span></span>`);
+      }
+
+      if (s.weightChange !== null && s.weightChange !== undefined) {
+        const sign = s.weightChange > 0 ? "+" : "";
+        stats.push(`<span class="ct-stat">
+          <b>${sign}${s.weightChange}</b><span>kg / 2wk</span></span>`);
+      }
+
+      // Where they are in their plan, if they have one running
+      const phaseBits = [];
+      if (s.planWeek) phaseBits.push(`Wk ${s.planWeek}`);
+      if (s.planPhase) phaseBits.push(s.planPhase);
+      else if (s.nutritionPhase) phaseBits.push(s.nutritionPhase);
 
       tile.innerHTML = `
         <div class="coach-avatar">${avatarInner}</div>
         <div class="name">${c.client}</div>
         <div class="coach-tile-meta">${lastLoggedText}</div>
+        ${phaseBits.length ? `<div class="ct-phase">${phaseBits.join(" · ")}</div>` : ""}
+        <div class="ct-stats">${stats.join("")}</div>
         ${fatigueTagHtml}${typeTagHtml}
       `;
       tile.addEventListener("click", () => loadClientAsAdmin(c.client));
@@ -6949,6 +7128,159 @@
       </div>`;
   }
 
+
+  // ---------- Adding a food to the database ----------
+  // A food missing from the database used to mean leaving the app, editing
+  // the spreadsheet and coming back. This adds it in place.
+  //
+  // Only macros are captured. The database carries around 80 further columns
+  // of micronutrients, and asking for those mid-plan would make the form
+  // unusable — so the micronutrient panel flags plans containing these foods
+  // rather than quietly under-reporting.
+
+  function openAddFoodForm(meal, order) {
+    const existing = document.getElementById("addFoodOverlay");
+    if (existing) existing.remove();
+
+    const categories = [...new Set((clientData.foodDatabase || [])
+      .map(f => f.cls).filter(Boolean))].sort();
+
+    const overlay = document.createElement("div");
+    overlay.id = "addFoodOverlay";
+    overlay.className = "photo-overlay";
+    overlay.innerHTML = `
+      <div class="add-food-card">
+        <div class="afc-head">
+          <h3>Add a food</h3>
+          <button class="photo-overlay-close" id="addFoodClose">×</button>
+        </div>
+
+        <div class="calc-field">
+          <label>Category</label>
+          <select id="afCategory">
+            ${categories.map(c => `<option${c === "Miscellaneous" ? " selected" : ""}>${c}</option>`).join("")}
+          </select>
+        </div>
+
+        <div class="calc-field">
+          <label>Food name</label>
+          <input type="text" id="afName" placeholder="e.g. Oats, rolled, uncooked" autocomplete="off">
+          <p class="af-hint">Match your existing naming so it sorts alongside similar foods.</p>
+        </div>
+
+        <p class="af-per100">Values per 100g</p>
+        <div class="af-macro-row">
+          <div class="calc-field">
+            <label>Protein (g)</label>
+            <input type="number" step="0.1" min="0" id="afProtein">
+          </div>
+          <div class="calc-field">
+            <label>Fat (g)</label>
+            <input type="number" step="0.1" min="0" id="afFat">
+          </div>
+          <div class="calc-field">
+            <label>Carbs (g)</label>
+            <input type="number" step="0.1" min="0" id="afCarbs">
+          </div>
+          <div class="calc-field">
+            <label>Fibre (g)</label>
+            <input type="number" step="0.1" min="0" id="afFibre" placeholder="optional">
+          </div>
+        </div>
+
+        <div class="af-energy" id="afEnergy">Energy will be calculated from the macros</div>
+
+        <p class="af-note">
+          Only macros are stored. Micronutrient totals for any plan using this
+          food will be incomplete until the full values are filled in on the
+          spreadsheet.
+        </p>
+
+        <div class="checkin-form-msg" id="afMsg"></div>
+        <button class="full" id="afSaveBtn">Add to Database</button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    overlay.style.display = "flex";
+
+    const close = () => overlay.remove();
+    document.getElementById("addFoodClose").onclick = close;
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+
+    // Show the derived energy as they type, so a mistyped value is obvious
+    const recalc = () => {
+      const p = Number(document.getElementById("afProtein").value) || 0;
+      const f = Number(document.getElementById("afFat").value) || 0;
+      const c = Number(document.getElementById("afCarbs").value) || 0;
+      const fib = Number(document.getElementById("afFibre").value) || 0;
+      const kcal = p * 4 + f * 9 + c * 4 + fib * 2;
+      const total = p + f + c;
+      const el = document.getElementById("afEnergy");
+      el.textContent = total > 0
+        ? `${Math.round(kcal)} kcal per 100g  ·  ${Math.round(kcal * 4.184)} kJ`
+        : "Energy will be calculated from the macros";
+      el.classList.toggle("over", total > 100);
+      if (total > 100) {
+        el.textContent = `Macros total ${roundTo(total, 1)}g per 100g — that isn't possible`;
+      }
+    };
+    ["afProtein", "afFat", "afCarbs", "afFibre"].forEach(id => {
+      document.getElementById(id).oninput = recalc;
+    });
+
+    document.getElementById("afSaveBtn").onclick = () => saveNewFood(meal, order, close);
+    document.getElementById("afName").focus();
+  }
+
+  async function saveNewFood(meal, order, closeFn) {
+    const msg = document.getElementById("afMsg");
+    const btn = document.getElementById("afSaveBtn");
+    const show = (t, kind) => { msg.textContent = t; msg.className = "checkin-form-msg " + (kind || ""); };
+
+    const name = document.getElementById("afName").value.trim();
+    if (!name) { show("Give the food a name.", "error"); return; }
+
+    const payload = {
+      action: "addFood",
+      email: currentEmail,
+      passcode: currentPasscode,
+      classification: document.getElementById("afCategory").value,
+      name,
+      protein: document.getElementById("afProtein").value,
+      fat: document.getElementById("afFat").value,
+      carbs: document.getElementById("afCarbs").value,
+      fibre: document.getElementById("afFibre").value
+    };
+
+    btn.disabled = true;
+    btn.textContent = "Adding...";
+    showLoading("Adding food...");
+
+    try {
+      const result = await postWithRetry(payload);
+      if (!result.ok) { show("Couldn't reach the server. Try again.", "error"); return; }
+      if (result.data.error) { show(result.data.error, "error"); return; }
+
+      // Add it locally too, so it's immediately selectable without a reload
+      clientData.foodDatabase = clientData.foodDatabase || [];
+      clientData.foodDatabase.push(result.data.food);
+
+      closeFn();
+      showToast(`"${name}" added to the database.`);
+      // Rebuild the editor so the new food appears in every picker
+      if (mealEditorContext) {
+        renderMealEditor(mealEditorContext.container, mealEditorContext.planName);
+      }
+    } catch (err) {
+      show("Something went wrong adding that food.", "error");
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Add to Database";
+      hideLoading();
+    }
+  }
+
   // ---------- Shopping list ----------
   // Aggregates every food across the plan's meals into a single quantity per
   // item. Deliberately stays in the language of the food database rather than
@@ -7677,7 +8009,12 @@
     renderMealPlanView(document.getElementById("mealPlanPanelContent"));
   }
 
+  // Held so adding a food can rebuild the pickers without the caller
+  // needing to pass context back in
+  let mealEditorContext = null;
+
   function renderMealEditor(container, planName) {
+    mealEditorContext = { container, planName };
     const slots = mealSlotsForPlan(planName);
     // Categories present in the database, so this adapts if you add new ones
     const foodCategories = [];
@@ -7787,6 +8124,7 @@
               ${compareRow("C", mealTotals.c, mealPrescribed.c)}
             </div>` : ""}
           <button class="ei-add" data-meal="${escapeAttr(slot)}" data-order="${slotIdx + 1}">+ Add Food</button>
+          <button class="ei-newfood" data-meal="${escapeAttr(slot)}" data-order="${slotIdx + 1}">+ New Food</button>
         </div>`;
     });
 
@@ -7830,6 +8168,9 @@
     });
     container.querySelectorAll(".ei-add").forEach(el => {
       el.onclick = () => addMealItem(el.dataset.meal, Number(el.dataset.order));
+    });
+    container.querySelectorAll(".ei-newfood").forEach(el => {
+      el.onclick = () => openAddFoodForm(el.dataset.meal, Number(el.dataset.order));
     });
     wireEditActions(planName);
   }
