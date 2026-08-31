@@ -2006,6 +2006,11 @@
   /* Long labels in the planner detail wrap rather than pushing the value out */
   .pd-label { white-space: normal; }
 
+
+  /* Plan years were removed — the plan is simply the 52 weeks in the
+     client's sheet, so there's nothing to select between. */
+  .plan-year-select, .plan-year-row { display: none !important; }
+
 </style>
 </head>
 <body>
@@ -3999,14 +4004,12 @@
     ["planNutritionPhase", "Nutrition Phase"]
   ];
 
-  let selectedPlanYear = 1;
-
   function renderPlannerTab() {
-    const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
-    const noStart = document.getElementById("plannerNoStart");
     const body = document.getElementById("plannerBody");
+    const noStart = document.getElementById("plannerNoStart");
+    const hasPlan = (clientData.macrocyclePlan || []).length > 0;
 
-    if (!planStart) {
+    if (!hasPlan) {
       noStart.style.display = "block";
       body.style.display = "none";
       return;
@@ -4014,73 +4017,34 @@
     noStart.style.display = "none";
     body.style.display = "block";
 
-    const editBtn = document.getElementById("planEditBtn");
-    editBtn.style.display = isAdminView ? "block" : "none";
+    document.getElementById("planEditBtn").style.display = isAdminView ? "block" : "none";
 
-    // Default to whichever year the client is currently in
-    const pos = getPlanPosition(planStart, new Date());
-    selectedPlanYear = pos ? pos.year : 1;
-
-    populateYearSelector(planStart);
-    populatePlanDropdowns();
-    wirePlannerControls(planStart);
-    renderPlannerForYear(planStart);
-  }
-
-  function populateYearSelector(planStart) {
-    const select = document.getElementById("planYearSelect");
-    const pos = getPlanPosition(planStart, new Date());
-    const currentYear = pos ? pos.year : 1;
-
-    // Offer every year they've reached, plus one ahead for forward planning
-    const maxYear = Math.max(currentYear + 1, 2);
-    let html = "";
-    for (let y = 1; y <= maxYear; y++) {
-      const nominalStart = new Date(planStart);
-      nominalStart.setDate(planStart.getDate() + (y - 1) * 52 * 7);
-      const actual = getWeekStartDate(planStart, y, 1, nominalStart);
-      html += `<option value="${y}" ${y === selectedPlanYear ? "selected" : ""}>Year ${y} · from ${formatDMY(actual || nominalStart)}</option>`;
-    }
-    select.innerHTML = html;
-    select.onchange = () => {
-      selectedPlanYear = Number(select.value);
-      renderPlannerForYear(planStart);
-    };
-  }
-
-  function renderPlannerForYear(planStart) {
-    const yearStart = new Date(planStart);
-    yearStart.setDate(planStart.getDate() + (selectedPlanYear - 1) * 52 * 7);
-
-    // Show the real week 1 date from the sheet, not a calculated one —
-    // they can differ when a plan doesn't start the week the sheet was set up.
-    const actualStart = getWeekStartDate(planStart, selectedPlanYear, 1, yearStart);
-
+    const anchor = planAnchorDate();
     document.getElementById("plannerSub").textContent =
-      `Year ${selectedPlanYear} · 52 weeks from ${formatDMY(actualStart || yearStart)}`;
+      anchor ? `52 weeks from ${formatDMY(anchor)}` : "52 weeks";
 
-    renderPlannerWeeks(planStart, yearStart);
-    renderYearStrip(planStart, yearStart);
-    renderCompCountdown(planStart);
-    renderDeloadWarnings(yearStart);
+    populatePlanDropdowns();
+    wirePlannerControls();
+    renderPlannerWeeks();
+    renderYearStrip();
+    renderCompCountdown();
+    renderDeloadWarnings();
   }
 
   // A compact colour bar of all 52 weeks — lets you read the shape of a
   // whole year without scrolling, and tap any week to jump straight to it.
-  function renderYearStrip(planStart, yearStart) {
+  function renderYearStrip() {
     const strip = document.getElementById("yearStrip");
     const planByWeek = {};
     (clientData.macrocyclePlan || []).forEach(r => {
-      if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
-        planByWeek[Number(r["Week Number"])] = r;
-      }
+      planByWeek[Number(r["Week Number"])] = r;
     });
 
     const colours = {};
     (clientData.planOptions || []).forEach(o => { colours[o["Option"]] = o["Colour"]; });
 
-    const pos = getPlanPosition(planStart, new Date());
-    const currentWeekNum = (pos && pos.year === selectedPlanYear) ? pos.week : null;
+    const pos = getPlanPosition(new Date());
+    const currentWeekNum = pos ? pos.week : null;
 
     let html = "";
     for (let w = 1; w <= 52; w++) {
@@ -4116,7 +4080,7 @@
 
   // Surfaces the next upcoming competition with a week countdown, since
   // that's usually what everything else in the plan is built around.
-  function renderCompCountdown(planStart) {
+  function renderCompCountdown() {
     const el = document.getElementById("compCountdown");
     const today = new Date();
 
@@ -4127,11 +4091,7 @@
         const w = Number(r["Week Number"]);
         // Prefer the row's own stored date over counting forward
         let weekStart = parseDate(r["Week Start"]);
-        if (!weekStart && planStart) {
-          const absWeek = ((year - 1) * 52) + w;
-          weekStart = new Date(planStart);
-          weekStart.setDate(planStart.getDate() + (absWeek - 1) * 7);
-        }
+        if (!weekStart) weekStart = getWeekStartDate(w);
         return { row: r, year, weekNum: w, date: weekStart };
       })
       .filter(c => c.date && c.date >= today)
@@ -4151,12 +4111,7 @@
     `;
     el.style.cursor = "pointer";
     el.onclick = () => {
-      if (next.year !== selectedPlanYear) {
-        selectedPlanYear = next.year;
-        document.getElementById("planYearSelect").value = String(next.year);
-        renderPlannerForYear(planStart);
-      }
-      setTimeout(() => scrollToPlanWeek(next.weekNum), 100);
+      scrollToPlanWeek(next.weekNum);
     };
   }
 
@@ -4273,13 +4228,11 @@
     };
   }
 
-  function renderPlannerWeeks(planStart, yearStart) {
+  function renderPlannerWeeks() {
     const container = document.getElementById("plannerWeeks");
     const planByWeek = {};
     (clientData.macrocyclePlan || []).forEach(r => {
-      if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
-        planByWeek[Number(r["Week Number"])] = r;
-      }
+      planByWeek[Number(r["Week Number"])] = r;
     });
 
     const optionColours = {};
@@ -4288,12 +4241,12 @@
     });
 
     const today = new Date();
-    const pos = getPlanPosition(planStart, today);
-    const currentWeekNum = (pos && pos.year === selectedPlanYear) ? pos.week : null;
+    const pos = getPlanPosition(today);
+    const currentWeekNum = pos ? pos.week : null;
 
     let html = "";
     for (let w = 1; w <= 52; w++) {
-      const weekStart = getWeekStartDate(planStart, selectedPlanYear, w, yearStart);
+      const weekStart = getWeekStartDate(w);
       const row = planByWeek[w] || {};
       const isCurrent = w === currentWeekNum;
 
@@ -4400,7 +4353,7 @@
     document.getElementById("planCalorieValue").textContent = kcal ? `${kcal} kcal` : "— kcal";
   }
 
-  function wirePlannerControls(planStart) {
+  function wirePlannerControls() {
     const editBtn = document.getElementById("planEditBtn");
     const editor = document.getElementById("planEditor");
 
@@ -4412,7 +4365,7 @@
     document.getElementById("planCancelBtn").onclick = () => {
       editor.style.display = "none";
     };
-    document.getElementById("planSaveBtn").onclick = () => savePlanRange(planStart);
+    document.getElementById("planSaveBtn").onclick = () => savePlanRange();
 
     // Calories are derived from the macros rather than typed separately —
     // protein and carbs at 4 kcal/g, fat at 9 kcal/g.
@@ -4427,8 +4380,8 @@
       if (w >= 1 && w <= 52) scrollToPlanWeek(w);
     };
     document.getElementById("planNowBtn").onclick = () => {
-      const currentWeek = Math.floor((new Date() - planStart) / (7 * 86400000)) + 1;
-      scrollToPlanWeek(Math.min(Math.max(currentWeek, 1), 52));
+      const pos = getPlanPosition(new Date());
+      if (pos) scrollToPlanWeek(pos.week);
     };
 
     // ---- Copy week (coach only) ----
@@ -4443,7 +4396,7 @@
     document.getElementById("planCopyCancelBtn").onclick = () => {
       document.getElementById("planCopyPanel").style.display = "none";
     };
-    document.getElementById("planCopyRunBtn").onclick = () => copyPlanWeek(planStart);
+    document.getElementById("planCopyRunBtn").onclick = () => copyPlanWeek();
 
     // ---- Plan history ----
     document.getElementById("planHistoryBtn").onclick = () => {
@@ -4492,7 +4445,7 @@
   // Copies every phase/macro/supplement setting from one week onto a range.
   // Competition and Notes are deliberately excluded — those are week-specific
   // by nature and copying them would almost always be wrong.
-  async function copyPlanWeek(planStart) {
+  async function copyPlanWeek() {
     const from = Number(document.getElementById("copyFromWeek").value);
     const toStart = Number(document.getElementById("copyToStart").value);
     const toEnd = Number(document.getElementById("copyToEnd").value);
@@ -4508,7 +4461,7 @@
       return;
     }
 
-    const source = planRowFor(selectedPlanYear, from);
+    const source = planRowFor(from);
     if (!source) {
       showMsg(`Week ${from} has nothing set to copy.`, true);
       return;
@@ -4543,8 +4496,6 @@
           email: currentEmail,
           passcode: currentPasscode,
           client: clientData.client,
-          planStartDate: clientData.planStartDate,
-          planYear: selectedPlanYear,
           startWeek: toStart, endWeek: toEnd, values
         })
       });
@@ -4554,7 +4505,7 @@
         showMsg(data.error, true);
       } else {
         showMsg(`Copied week ${from} to weeks ${toStart}–${toEnd}.`, false);
-        await refreshPlannerData(planStart);
+        await refreshPlannerData();
       }
     } catch (err) {
       showMsg("Couldn't copy — check your connection and try again.", true);
@@ -4566,7 +4517,7 @@
     }
   }
 
-  async function refreshPlannerData(planStart) {
+  async function refreshPlannerData() {
     // Called after a successful save, so a failure here means the data is
     // saved but the view is stale — worth logging rather than swallowing.
     try {
@@ -4574,14 +4525,14 @@
       const refreshed = await (await fetch(url)).json();
       if (!refreshed.error) {
         clientData = refreshed;
-        renderPlannerForYear(planStart);
+        renderPlannerTab();
       }
     } catch (err) {
       console.error("Saved, but couldn't refresh the planner view:", err);
     }
   }
 
-  async function savePlanRange(planStart) {
+  async function savePlanRange() {
     const startWeek = Number(document.getElementById("planStartWeek").value);
     const endWeek = Number(document.getElementById("planEndWeek").value);
     const msgEl = document.getElementById("planSaveMsg");
@@ -4642,8 +4593,6 @@
           email: currentEmail,
           passcode: currentPasscode,
           client: clientData.client,
-          planStartDate: clientData.planStartDate,
-          planYear: selectedPlanYear,
           startWeek, endWeek, values
         })
       });
@@ -4653,7 +4602,7 @@
         showMsg(data.error, true);
       } else {
         showMsg(`Updated ${data.weeksUpdated} week${data.weeksUpdated === 1 ? "" : "s"}.`, false);
-        await refreshPlannerData(planStart);
+        await refreshPlannerData();
       }
     } catch (err) {
       showMsg("Couldn't save — check your connection and try again.", true);
@@ -4672,14 +4621,14 @@
     const banner = document.getElementById("currentPlanBanner");
     if (!banner) return;
 
-    const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
-    if (!planStart) { banner.style.display = "none"; return; }
+    const anchor = planAnchorDate();
+    if (!anchor) { banner.style.display = "none"; return; }
 
     const today = new Date();
-    const pos = getPlanPosition(planStart, today);
+    const pos = getPlanPosition(today);
     if (!pos) { banner.style.display = "none"; return; }
 
-    const row = planRowFor(pos.year, pos.week);
+    const row = planRowFor(pos.week);
     if (!row || !row["Block Type"]) { banner.style.display = "none"; return; }
 
     const colours = {};
@@ -4709,96 +4658,65 @@
     banner.style.display = "block";
     banner.style.borderLeftColor = blockColour;
     banner.innerHTML = `
-      <div class="cpb-label">Plan · Year ${pos.year}, Week ${pos.week} of 52</div>
+      <div class="cpb-label">Plan · Week ${pos.week} of 52</div>
       <div class="cpb-block">${row["Block Type"]}</div>
       ${metaBits.length ? `<div class="cpb-meta">${metaBits.join(" · ")}</div>` : ""}
       ${compHtml}
     `;
   }
 
-  // Works out which plan year and week a date falls into.
-  //
-  // Stored Week Start dates from the client's spreadsheet are the source of
-  // truth — a plan doesn't always begin the week a client's sheet was set up
-  // (e.g. they finish two weeks of an old block first), so counting forward
-  // from Plan Start Date alone would shift everything out of alignment.
-  // Plan Start Date is only used as a fallback when no dated rows exist.
-  function getPlanPosition(planStart, targetDate) {
-    if (!targetDate) return null;
+  /* ---------- Plan week resolution ----------
+     Dates come entirely from the client's own training spreadsheet. There is
+     no separate start date and no plan-year concept: both existed to derive
+     dates the sheet already knew, and the two sources drifting apart caused
+     weeks to collide and "now" to land on the wrong one.
 
-    // Find the planned week whose 7-day span contains the target date
-    const dated = (clientData.macrocyclePlan || [])
-      .map(r => ({ row: r, date: parseDate(r["Week Start"]) }))
-      .filter(x => x.date);
+     The plan is simply the 52 weeks in the sheet, anchored on whichever week
+     it actually starts. */
 
-    for (const item of dated) {
-      const end = new Date(item.date);
-      end.setDate(item.date.getDate() + 6);
-      if (targetDate >= item.date && targetDate <= end) {
-        const year = Number(item.row["Plan Year"] || 1);
-        const week = Number(item.row["Week Number"]);
-        return { year, week, absoluteWeek: ((year - 1) * 52) + week };
-      }
-    }
-
-    /* No dated week covers this date. Count from the plan's own anchor
-       rather than Plan Start Date — the two can be weeks apart, and using
-       the wrong one put "now" on the wrong week entirely. */
-    const anchor = planAnchorDate(1, planStart, null) || planStart;
-    if (!anchor) return null;
-    const weeksElapsed = Math.floor((targetDate - anchor) / (7 * 86400000));
-    if (weeksElapsed < 0) return null;
-    return {
-      year: Math.floor(weeksElapsed / 52) + 1,
-      week: (weeksElapsed % 52) + 1,
-      absoluteWeek: weeksElapsed + 1
-    };
+  function planRowFor(week) {
+    return (clientData.macrocyclePlan || [])
+      .find(r => Number(r["Week Number"]) === week) || null;
   }
 
-  /* The plan's own week 1 date, which anchors any week that has no row yet.
-
-     Plan Start Date on the Clients tab records when a client's plan was set
-     up, which isn't necessarily when their programming begins — a client can
-     finish an old block first. Using it to compute missing weeks produced
-     dates that collided with real ones: with a 12-week gap, week 13 computed
-     to week 1's date, week 14 to week 2's, and so on. The plan's first
-     stored week is the correct anchor. */
-  function planAnchorDate(year, planStart, yearStart) {
+  // Week 1's date, worked back from the earliest week that has one
+  function planAnchorDate() {
     const rows = (clientData.macrocyclePlan || [])
-      .filter(r => Number(r["Plan Year"] || 1) === year)
       .map(r => ({ week: Number(r["Week Number"]), date: parseDate(r["Week Start"]) }))
       .filter(r => r.date && r.week)
       .sort((a, b) => a.week - b.week);
+    if (!rows.length) return null;
 
-    if (rows.length) {
-      // Wind back to what week 1 would be, in case week 1 itself has no row
-      const d = new Date(rows[0].date);
-      d.setDate(d.getDate() - (rows[0].week - 1) * 7);
-      return d;
-    }
-    return yearStart || planStart || null;
+    const d = new Date(rows[0].date);
+    d.setDate(d.getDate() - (rows[0].week - 1) * 7);
+    return d;
   }
 
-  // The stored date for a plan week, or one derived from the plan's own
-  // anchor when that week hasn't been filled in yet.
-  function getWeekStartDate(planStart, year, week, yearStart) {
-    const row = planRowFor(year, week);
+  // A week's stored date, or one derived from the anchor if it has no row yet
+  function getWeekStartDate(week) {
+    const row = planRowFor(week);
     if (row) {
       const stored = parseDate(row["Week Start"]);
       if (stored) return stored;
     }
-    const base = planAnchorDate(year, planStart, yearStart);
+    const base = planAnchorDate();
     if (!base) return null;
     const d = new Date(base);
     d.setDate(base.getDate() + (week - 1) * 7);
     return d;
   }
 
-  function planRowFor(year, week) {
-    return (clientData.macrocyclePlan || []).find(r =>
-      Number(r["Week Number"]) === week && Number(r["Plan Year"] || 1) === year
-    );
+  // Which plan week a date falls in, or null if it sits outside the plan
+  function getPlanPosition(targetDate) {
+    if (!targetDate) return null;
+    const anchor = planAnchorDate();
+    if (!anchor) return null;
+
+    const weeksElapsed = Math.floor((targetDate - anchor) / (7 * 86400000));
+    if (weeksElapsed < 0 || weeksElapsed > 51) return null;
+    return { week: weeksElapsed + 1 };
   }
+
 
   // Flags stretches of hard training with no recovery week scheduled.
   // Deliberately advisory — there are legitimate reasons to run long,
@@ -4806,16 +4724,14 @@
   const RECOVERY_BLOCKS = ["Deload", "Active Recovery", "Restorative", "Rehab", "Transition"];
   const DELOAD_GAP_THRESHOLD = 6;
 
-  function renderDeloadWarnings(yearStart) {
+  function renderDeloadWarnings() {
     const container = document.getElementById("deloadWarnings");
 
     // Deload spacing is a training concern — not relevant to nutrition-only clients
     if (isNutritionOnlyClient()) { container.innerHTML = ""; return; }
     const planByWeek = {};
     (clientData.macrocyclePlan || []).forEach(r => {
-      if (Number(r["Plan Year"] || 1) === selectedPlanYear) {
-        planByWeek[Number(r["Week Number"])] = r;
-      }
+      planByWeek[Number(r["Week Number"])] = r;
     });
 
     const gaps = [];
@@ -9082,14 +8998,14 @@
       source: "default"
     };
 
-    const planStart = clientData.planStartDate ? parseDate(clientData.planStartDate) : null;
+    const anchor = planAnchorDate();
     const target = dateValue ? parseDate(dateValue) : new Date();
-    if (!planStart || !target) return fallback;
+    if (!anchor || !target) return fallback;
 
-    const pos = getPlanPosition(planStart, target);
+    const pos = getPlanPosition(target);
     if (!pos) return fallback;
 
-    const planRow = planRowFor(pos.year, pos.week);
+    const planRow = planRowFor(pos.week);
     if (!planRow) return fallback;
 
     const hasAny = planRow["Calorie Target"] || planRow["Protein Target"] ||
@@ -9103,7 +9019,6 @@
       carb: planRow["Carb Target"] || fallback.carb,
       phase: planRow["Nutrition Phase"] || "",
       weekNum: pos.week,
-      planYear: pos.year,
       source: "plan"
     };
   }
@@ -9121,7 +9036,7 @@
     if (banner) {
       if (t.source === "plan") {
         banner.style.display = "block";
-        banner.innerHTML = `Year ${t.planYear}, Week ${t.weekNum} of your plan${t.phase ? ` · <b>${t.phase}</b>` : ""}` +
+        banner.innerHTML = `Week ${t.weekNum} of your plan${t.phase ? ` · <b>${t.phase}</b>` : ""}` +
           (t.calories ? ` · <b>${t.calories}</b> kcal target` : "");
       } else {
         banner.style.display = "none";
