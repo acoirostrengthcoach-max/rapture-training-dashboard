@@ -1156,9 +1156,26 @@
     letter-spacing: 0.4px; margin-bottom: 4px;
   }
   .dt-actual { font-size: 17px; font-weight: 700; color: var(--text); line-height: 1.1; }
+  /* Tinting the whole column rather than only the number — a colour change
+     on one figure was easy to miss when scanning the totals. */
   .dt-actual.on { color: var(--good); }
   .dt-actual.near { color: var(--accent); }
   .dt-actual.off { color: var(--bad); }
+
+  .dt-col { border: 1px solid transparent; transition: background var(--ease-quick); }
+  .dt-col.on {
+    background: rgba(122,180,120,0.1); border-color: rgba(122,180,120,0.35);
+  }
+  .dt-col.near {
+    background: rgba(212,162,76,0.1); border-color: rgba(212,162,76,0.35);
+  }
+  .dt-col.off {
+    background: rgba(182,64,44,0.11); border-color: rgba(182,64,44,0.35);
+  }
+  .dt-diff.on { color: var(--good); }
+  .dt-diff.near { color: var(--accent); }
+  .dt-diff.off { color: var(--bad); }
+  .dt-diff { font-weight: 700; }
   .dt-target { font-size: 10px; color: var(--muted); margin-top: 2px; }
   .dt-diff { font-size: 10px; font-weight: 600; margin-top: 3px; }
   .dt-diff.on { color: var(--good); }
@@ -1854,9 +1871,11 @@
   /* ---- Check-in detail: the charts pair up ----
      This is the main reason to be on a desktop, and where the single
      column wasted the most space. */
+  /* mealPlanPanelContent is deliberately NOT a grid: its child
+     #mealPlanContent is the grid, and nesting the two squeezed the meal
+     blocks into one column of an outer pair. */
   body.wide-mode #checkinDetailContent,
-  body.wide-mode #trainingContent,
-  body.wide-mode #mealPlanPanelContent {
+  body.wide-mode #trainingContent {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 20px;
@@ -2124,12 +2143,31 @@
   /* ---- Meal planning ---- */
   body.wide-mode #mealPlanPanel { max-width: 1240px; margin: 0 auto; }
 
-  /* Meals side by side instead of one long scroll */
+  /* Meals side by side instead of one long scroll. auto-fill rather than
+     auto-fit so columns keep their width when there are only two or three
+     meals, instead of stretching one card across the whole page. */
   body.wide-mode #mealPlanContent {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
     gap: 16px; align-items: start;
   }
-  body.wide-mode .meal-block { margin-bottom: 0; }
+  body.wide-mode .meal-block { margin-bottom: 0; height: 100%; }
+
+  /* Food rows get more room, so long names aren't truncated */
+  body.wide-mode .meal-item { padding: 11px 0; }
+  body.wide-mode .mi-name { font-size: 13.5px; }
+
+  /* Editor rows spread out rather than stacking */
+  body.wide-mode .edit-item { padding: 12px; }
+  body.wide-mode .ei-qty-row { gap: 10px; }
+  body.wide-mode .ei-food { min-width: 180px; }
+
+  /* On a large screen three columns read better than four wide ones */
+  @media (min-width: 1400px) {
+    body.wide-mode #mealPlanContent {
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+    }
+  }
 
   /* Daily totals stay full width and become a proper summary bar */
   body.wide-mode .day-totals {
@@ -7192,6 +7230,18 @@
             <input type="number" step="0.1" min="0" id="afSatFat" placeholder="optional">
           </div>
           <div class="calc-field">
+            <label>— monounsat. (g)</label>
+            <input type="number" step="0.1" min="0" id="afMonoFat" placeholder="optional">
+          </div>
+          <div class="calc-field">
+            <label>— polyunsat. (g)</label>
+            <input type="number" step="0.1" min="0" id="afPolyFat" placeholder="optional">
+          </div>
+          <div class="calc-field">
+            <label>— trans (g)</label>
+            <input type="number" step="0.1" min="0" id="afTransFat" placeholder="optional">
+          </div>
+          <div class="calc-field">
             <label>Carbs (g)</label>
             <input type="number" step="0.1" min="0" id="afCarbs">
           </div>
@@ -7271,7 +7321,16 @@
     const carbs = Number(document.getElementById("afCarbs").value) || 0;
     const sugars = Number(document.getElementById("afSugars").value) || 0;
 
+    const mono = Number(document.getElementById("afMonoFat").value) || 0;
+    const poly = Number(document.getElementById("afPolyFat").value) || 0;
+    const trans = Number(document.getElementById("afTransFat").value) || 0;
+
     if (sat > fat) { show("Saturated fat can't exceed total fat.", "error"); return; }
+    // Allow a little slack — labels round each line independently
+    if (sat + mono + poly + trans > fat + 0.5) {
+      show("The fat breakdown adds up to more than the total fat.", "error");
+      return;
+    }
     if (sugars > carbs) { show("Sugars can't exceed total carbs.", "error"); return; }
 
     const payload = {
@@ -7283,6 +7342,9 @@
       protein: document.getElementById("afProtein").value,
       fat: document.getElementById("afFat").value,
       satFat: document.getElementById("afSatFat").value,
+      monoFat: document.getElementById("afMonoFat").value,
+      polyFat: document.getElementById("afPolyFat").value,
+      transFat: document.getElementById("afTransFat").value,
       carbs: document.getElementById("afCarbs").value,
       sugars: document.getElementById("afSugars").value,
       fibre: document.getElementById("afFibre").value,
@@ -8608,7 +8670,9 @@
     const tolerance = isKcal ? DAY_KCAL_TOLERANCE : DAY_MACRO_TOLERANCE;
     const cls = toleranceClass(diff, tolerance);
     const diffText = isKcal ? String(Math.round(diff)) : fmtMacro(Math.abs(diff));
-    return `<div class="dt-col">
+    // The class goes on the column too, so the tinting doesn't depend on
+    // :has() being supported
+    return `<div class="dt-col ${cls}">
         <div class="dt-label">${label}</div>
         <div class="dt-actual ${cls}">${fmt(actual)}${unit}</div>
         <div class="dt-target">of ${fmt(prescribed)}${unit}</div>
