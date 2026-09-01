@@ -1210,17 +1210,32 @@
   .mi-qty { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .mi-macros { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
   .meal-compare {
-    display: flex; gap: 12px; flex-wrap: wrap;
-    padding: 8px 13px 10px; background: var(--card2);
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 9px 13px 11px; background: var(--card2);
     border-top: 1px solid var(--border);
   }
-  .mc-item { font-size: 11px; color: var(--muted); }
-  .mc-item b { color: var(--text); margin-right: 2px; }
-  .mc-target { opacity: 0.7; }
-  .mc-diff { margin-left: 4px; font-weight: 600; }
-  .mc-diff.on { color: var(--good); }
-  .mc-diff.near { color: var(--accent); }
-  .mc-diff.off { color: var(--bad); }
+  /* Meal macro chips — same grading as the daily totals, so a meal that's
+     off reads the same way wherever you're looking. */
+  .mc-item {
+    display: inline-flex; flex-direction: column; align-items: center;
+    background: var(--card2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 6px 10px; min-width: 62px;
+    font-size: 11px; color: var(--muted);
+  }
+  .mc-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+    font-weight: 700; color: var(--muted);
+  }
+  .mc-value { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.15; }
+  .mc-target { font-size: 10px; opacity: 0.75; }
+  .mc-diff { font-size: 10.5px; font-weight: 700; margin-top: 1px; }
+
+  .mc-item.on { background: rgba(122,180,120,0.1); border-color: rgba(122,180,120,0.35); }
+  .mc-item.on .mc-value, .mc-item.on .mc-diff { color: var(--good); }
+  .mc-item.near { background: rgba(212,162,76,0.1); border-color: rgba(212,162,76,0.35); }
+  .mc-item.near .mc-value, .mc-item.near .mc-diff { color: var(--accent); }
+  .mc-item.off { background: rgba(182,64,44,0.11); border-color: rgba(182,64,44,0.35); }
+  .mc-item.off .mc-value, .mc-item.off .mc-diff { color: var(--bad); }
 
   /* ---------- Macrocycle planner ---------- */
   .plan-editor-hint { font-size: 11px; color: var(--muted); margin: 0 0 14px; }
@@ -3596,7 +3611,22 @@
 
   // The meal plan takes over the main area, so the tabs and their panels
   // hide while it's open rather than sitting awkwardly beneath it.
+  /* True while a full-screen panel (training, meal plan, calculator) is open.
+     Data now arrives in stages, so renderDashboard runs again after the
+     panel opens — and without this check it would restore the scorecard and
+     speciality row underneath the panel, where they appeared stranded at the
+     bottom of the page. */
+  function anyOverlayPanelOpen() {
+    return ["trainingPanel", "mealPlanPanel", "calcPanel"].some(id => {
+      const el = document.getElementById(id);
+      return el && el.style.display === "block";
+    });
+  }
+
   function setDashboardSectionsVisible(visible) {
+    // A panel being open always wins over a caller asking to show things
+    if (visible && anyOverlayPanelOpen()) return;
+
     const tabs = document.querySelector(".tabs");
     if (tabs) tabs.style.display = visible ? "" : "none";
     document.querySelectorAll(".tab-panel").forEach(p => {
@@ -3645,12 +3675,15 @@
 
     // Lifetime training stats and the volume-as-animals widget both read
     // from training data, so neither means anything without it.
-    document.getElementById("scorecard").style.display = isNutritionOnly ? "none" : "flex";
+    document.getElementById("scorecard").style.display =
+      (isNutritionOnly || anyOverlayPanelOpen()) ? "none" : "flex";
     document.getElementById("animalWidget").style.display = isNutritionOnly ? "none" : "block";
 
     // Speciality is a training descriptor
     const specialityRow = document.querySelector(".speciality-row");
-    if (specialityRow) specialityRow.style.display = isNutritionOnly ? "none" : "";
+    if (specialityRow) {
+      specialityRow.style.display = (isNutritionOnly || anyOverlayPanelOpen()) ? "none" : "";
+    }
 
     // The current-block banner belongs to a training tab that's now hidden,
     // but hide it explicitly so it can't reappear.
@@ -6596,16 +6629,16 @@
   // failing afterwards is kept locally so the work isn't lost.
   async function postWithRetry(payload, options) {
     const opts = options || {};
-    const attempts = opts.attempts || 3;
+    const attempts = opts.attempts || 4;
     const onAttempt = opts.onAttempt || function () {};
 
     let lastError = null;
 
     for (let i = 0; i < attempts; i++) {
       if (i > 0) {
-        // 2s, then 5s — long enough to outlast a brief lock without
-        // leaving the person staring at a frozen button
-        const wait = i === 1 ? 2000 : 5000;
+        // 2s, 5s, then 10s. The failure mode is the server being slow or
+        // briefly busy rather than unreachable, so it's worth waiting.
+        const wait = [0, 2000, 5000, 10000][i] || 10000;
         onAttempt(i + 1, attempts, wait);
         await new Promise(r => setTimeout(r, wait));
       }
@@ -8680,12 +8713,18 @@
       </div>`;
   }
 
+  /* Per-meal macro comparison, styled to match the daily totals. Previously
+     only the difference figure carried the colour, on a small muted line —
+     which made it hard to see at a glance which meal was off while planning. */
   function compareRow(letter, actual, prescribed) {
     const diff = actual - prescribed;
     const cls = toleranceClass(diff, MEAL_MACRO_TOLERANCE);
-    return `<span class="mc-item">
-        <b>${letter}</b> ${fmtMacro(actual)}<span class="mc-target">/${fmtMacro(prescribed)}</span>
-        <span class="mc-diff ${cls}">${diff >= 0 ? "+" : "-"}${fmtMacro(Math.abs(diff))}</span>
+    const names = { P: "Protein", F: "Fat", C: "Carbs", kcal: "Calories" };
+    return `<span class="mc-item ${cls}" title="${names[letter] || letter}">
+        <span class="mc-label">${letter}</span>
+        <span class="mc-value">${fmtMacro(actual)}</span>
+        <span class="mc-target">of ${fmtMacro(prescribed)}</span>
+        <span class="mc-diff">${diff >= 0 ? "+" : "-"}${fmtMacro(Math.abs(diff))}</span>
       </span>`;
   }
 
