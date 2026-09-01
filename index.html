@@ -2300,6 +2300,7 @@
           Desktop
         </button>
       </div>
+      <button class="logout" id="refreshDataBtn" title="Reload from the spreadsheets">Refresh</button>
       <button class="logout" id="backToClientsBtn" style="display:none;">&larr; Clients</button>
       <button class="logout" id="logoutBtn">Log out</button>
     </div>
@@ -3071,6 +3072,7 @@
     }
   })();
   document.getElementById("logoutBtn").addEventListener("click", fullLogout);
+  document.getElementById("refreshDataBtn").addEventListener("click", refreshAllData);
   document.getElementById("coachLogoutBtn").addEventListener("click", fullLogout);
 
   document.getElementById("backToClientsBtn").addEventListener("click", () => {
@@ -6627,7 +6629,11 @@
   // grows, rather than getting slower every month.
 
   const CACHE_PREFIX = "raptureData_";
-  const CACHE_MAX_AGE = 12 * 60 * 60 * 1000;   // stale after 12 hours
+  /* Kept short deliberately. The cache exists to make the app feel instant
+     on reopening, not to avoid fetching — and a long life means a sheet
+     edited by hand doesn't show up, which is confusing rather than fast.
+     Cached data still renders immediately; it just refreshes behind it. */
+  const CACHE_MAX_AGE = 30 * 60 * 1000;   // stale after 30 minutes
 
   const loadedScopes = new Set();
   const inFlight = {};
@@ -6733,6 +6739,40 @@
         .forEach(k => localStorage.removeItem(k));
     } catch (e) { /* nothing useful to do */ }
     loadedScopes.clear();
+  }
+
+
+  /* Discards everything cached and refetches. For when a sheet has just been
+     edited by hand and the app is still showing the previous state. */
+  async function refreshAllData() {
+    const btn = document.getElementById("refreshDataBtn");
+    const original = btn ? btn.textContent : "";
+    if (btn) { btn.textContent = "Refreshing..."; btn.disabled = true; }
+
+    const client = isAdminView ? clientData.client : null;
+    clearDataCache(client);
+
+    try {
+      // fresh=1 bypasses the server's cache too, so this genuinely re-reads
+      let url = `${API_URL}?email=${encodeURIComponent(currentEmail)}` +
+                `&passcode=${encodeURIComponent(currentPasscode)}&scope=all&fresh=1`;
+      if (client) url += `&targetClient=${encodeURIComponent(client)}`;
+
+      const data = await (await fetch(url)).json();
+      if (data.error) throw new Error(data.error);
+
+      clientData = data;
+      ["core", "training", "checkins", "planner", "meals", "bloods", "photos"]
+        .forEach(s => loadedScopes.add(s));
+
+      renderDashboard();
+      showToast("Data reloaded from the spreadsheets.");
+    } catch (err) {
+      console.error("Refresh failed:", err);
+      showToast("Couldn't refresh — check your connection.");
+    } finally {
+      if (btn) { btn.textContent = original || "Refresh"; btn.disabled = false; }
+    }
   }
 
   // ---------- Resilient posting ----------
