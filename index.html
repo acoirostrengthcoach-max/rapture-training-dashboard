@@ -6649,7 +6649,23 @@
           headers: { "Content-Type": "text/plain" },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+
+        /* Read as text first. When Apps Script throws it returns an HTML
+           error page, and calling res.json() on that fails — which is why a
+           genuine server error was being reported as a connection failure. */
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (parseErr) {
+          const snippet = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
+          console.error("Server returned a non-JSON response:", snippet);
+          return {
+            ok: true,
+            data: { error: "The server hit an error. " + (snippet || "No detail was returned.") }
+          };
+        }
+
         // A returned error is the server answering, not a transport failure,
         // so there's nothing to gain from retrying it
         return { ok: true, data };
