@@ -852,6 +852,22 @@
     .af-macro-row { grid-template-columns: 1fr; }
   }
 
+
+  /* Per-week edit button inside the expanded detail */
+  .pd-edit {
+    width: 100%; margin-top: 12px;
+    background: var(--card2); color: var(--accent);
+    border: 1px solid var(--accent-dim); border-radius: var(--radius-pill);
+    padding: 9px; font-size: 12px; font-weight: 700;
+    transition: background var(--ease-quick), transform var(--ease-quick);
+  }
+  .pd-edit:hover { background: rgba(212,162,76,0.1); border-color: var(--accent); }
+  .pd-edit:active { transform: scale(0.98); }
+  .pd-empty {
+    font-size: 11.5px; color: var(--muted); font-style: italic;
+    text-align: center; padding: 4px 0;
+  }
+
   /* ---------- Training sessions ---------- */
   .session-entry-btn {
     width: 100%; display: flex; align-items: center; justify-content: space-between;
@@ -4290,6 +4306,82 @@
     renderDeloadWarnings();
   }
 
+
+  /* Returns the editor to its bulk-apply state. Editing a single week
+     renames the heading and pre-fills the fields, so reopening it for a
+     range would otherwise carry that week's values across the whole range. */
+  function resetPlanEditorToRangeMode() {
+    const editor = document.getElementById("planEditor");
+    const heading = editor.querySelector("h3");
+    if (heading) heading.textContent = "Set phases across a week range";
+
+    ["planMacroPhase", "planMesoPhase", "planBlockType",
+     "planProgType", "planNutritionPhase"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";        // back to "— no change —"
+    });
+    ["planProteinTarget", "planFatTarget", "planCarbTarget", "planSupplementation",
+     "planNotes", "planCompetition", "planCompLocation"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    if (typeof updatePlanCalorieDisplay === "function") updatePlanCalorieDisplay();
+  }
+
+  /* Opens the range editor scoped to a single week, pre-filled with whatever
+     that week already holds.
+
+     The editor was built for setting a phase across a block, so its fields
+     default to "no change" — sensible for a range, but unhelpful when you're
+     editing one week and want to see what's there. Pre-filling makes it
+     behave like an edit form rather than a bulk-apply tool. */
+  function openWeekEditor(week) {
+    const editor = document.getElementById("planEditor");
+    const row = planRowFor(week);
+
+    document.getElementById("planStartWeek").value = week;
+    document.getElementById("planEndWeek").value = week;
+
+    // Selects show the week's current value where it has one
+    const setSelect = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const wanted = String(value || "").trim();
+      const match = Array.from(el.options).find(o => o.value === wanted);
+      el.value = match ? wanted : "";
+    };
+    setSelect("planMacroPhase", row && row["Macrocycle Phase"]);
+    setSelect("planMesoPhase", row && row["Mesocycle Phase"]);
+    setSelect("planBlockType", row && row["Block Type"]);
+    setSelect("planProgType", row && row["Programming Type"]);
+    setSelect("planNutritionPhase", row && row["Nutrition Phase"]);
+
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = (value === null || value === undefined) ? "" : value;
+    };
+    setValue("planProteinTarget", row && row["Protein Target"]);
+    setValue("planFatTarget", row && row["Fat Target"]);
+    setValue("planCarbTarget", row && row["Carb Target"]);
+    setValue("planSupplementation", row && row["Supplementation"]);
+    setValue("planNotes", row && row["Notes"]);
+    setValue("planCompetition", row && row["Competition"]);
+    setValue("planCompLocation", row && row["Location"]);
+
+    if (typeof updatePlanCalorieDisplay === "function") updatePlanCalorieDisplay();
+
+    // Make it clear this is scoped to one week rather than a range
+    const heading = editor.querySelector("h3");
+    if (heading) {
+      const weekStart = getWeekStartDate(week);
+      heading.textContent = `Week ${week}${weekStart ? " · " + formatDMY(weekStart) : ""}`;
+    }
+
+    editor.style.display = "block";
+    document.getElementById("planEditBtn").textContent = "Close Editor";
+    editor.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
   // A compact colour bar of all 52 weeks — lets you read the shape of a
   // whole year without scrolling, and tap any week to jump straight to it.
   function renderYearStrip() {
@@ -4560,10 +4652,21 @@
             ${row["Competition"] ? `<div class="plan-comp">🏆 ${row["Competition"]}${row["Location"] ? ` <span>· ${row["Location"]}</span>` : ""}</div>` : ""}
             ${row["Notes"] ? `<div class="plan-note">${row["Notes"]}</div>` : ""}
             ${drift ? `<div class="plan-drift ${drift.ok ? "ok" : ""}">${drift.text}</div>` : ""}
+            ${isAdminView ? `<button class="pd-edit" data-week="${w}">Edit Week ${w}</button>` : ""}
+          </div>`;
+      } else if (isAdminView) {
+        // Nothing planned yet — offer the editor rather than an empty panel,
+        // since an unplanned week is precisely the one you'd want to fill in
+        detailHtml = `
+          <div class="plan-detail">
+            <div class="pd-empty">Nothing planned for this week yet.</div>
+            <button class="pd-edit" data-week="${w}">Plan Week ${w}</button>
           </div>`;
       }
 
-      const isExpandable = hasDetail || drift || actual;
+      // A coach can always open a week, including empty ones — otherwise
+      // an unplanned week would be the one thing you couldn't fill in
+      const isExpandable = hasDetail || drift || actual || isAdminView;
 
       html += `
         <div class="plan-week ${isCurrent ? "is-current" : ""} ${isExpandable ? "expandable" : ""}">
@@ -4587,6 +4690,13 @@
 
     container.querySelectorAll(".plan-week.expandable").forEach(el => {
       el.querySelector(".plan-row-main").addEventListener("click", () => el.classList.toggle("expanded"));
+    });
+
+    container.querySelectorAll(".pd-edit").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();   // don't collapse the row we just opened
+        openWeekEditor(Number(btn.dataset.week));
+      });
     });
 
     const currentEl = container.querySelector(".plan-week.is-current");
@@ -4617,12 +4727,18 @@
     const editor = document.getElementById("planEditor");
 
     editBtn.onclick = () => {
-      editor.style.display = editor.style.display === "none" ? "block" : "none";
+      const opening = editor.style.display === "none";
+      editor.style.display = opening ? "block" : "none";
       document.getElementById("planCopyPanel").style.display = "none";
       document.getElementById("planSaveMsg").textContent = "";
+      // Opening from this button means a range edit, so restore the heading
+      // and label a single-week edit may have changed
+      if (opening) resetPlanEditorToRangeMode();
+      editBtn.textContent = opening ? "Close Editor" : "Edit Week Range";
     };
     document.getElementById("planCancelBtn").onclick = () => {
       editor.style.display = "none";
+      editBtn.textContent = "Edit Week Range";
     };
     document.getElementById("planSaveBtn").onclick = () => savePlanRange();
 
