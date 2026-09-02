@@ -3626,7 +3626,18 @@
     if (!showButton) { panel.style.display = "none"; return; }
 
     btn.onclick = () => {
-      renderMealPlanView(document.getElementById("mealPlanPanelContent"));
+      /* The meals scope carries the food database, so it's fetched when the
+         panel opens rather than at login. Cached data renders immediately on
+         subsequent opens. */
+      const content = document.getElementById("mealPlanPanelContent");
+      if (!loadedScopes.has("meals")) {
+        content.innerHTML = `<div class="chart-empty">Loading meal plans...</div>`;
+      }
+      ensureScope("meals", () => renderMealPlanView(content))
+        .catch(() => {
+          content.innerHTML = `<div class="chart-empty">Couldn't load meal plans. Try again.</div>`;
+        });
+
       setDashboardSectionsVisible(false);
       ["calcPanel", "trainingPanel"].forEach(id => {
         const p = document.getElementById(id);
@@ -9416,9 +9427,15 @@
 
     // Bloods draws from Blood_Results/Blood_Reference, not the weekly
     // check-in summary — route it before any of that logic runs.
+    /* Some check-in sections draw on data outside the checkins scope, so
+       they fetch it when opened. Without this they showed nothing until the
+       Refresh button pulled everything — which is how blood results entered
+       yesterday were still missing today. */
     if (category === "bloods") {
       document.querySelector("#checkinDetail .block-sub").textContent = "Results by test date";
-      renderBloodsView(content);
+      content.innerHTML = `<div class="chart-empty">Loading results...</div>`;
+      ensureScope("bloods", () => renderBloodsView(content))
+        .catch(() => { content.innerHTML = `<div class="chart-empty">Couldn't load blood results.</div>`; });
       return;
     }
     if (category === "daily") {
@@ -9429,7 +9446,9 @@
     // Photos come from Drive rather than the check-in summary
     if (category === "photos") {
       document.querySelector("#checkinDetail .block-sub").textContent = "Front, side and back over time";
-      renderPhotosView(content);
+      content.innerHTML = `<div class="chart-empty">Loading photos...</div>`;
+      ensureScope("photos", () => renderPhotosView(content))
+        .catch(() => { content.innerHTML = `<div class="chart-empty">Couldn't load photos.</div>`; });
       return;
     }
     document.querySelector("#checkinDetail .block-sub").textContent = "Trend over every logged week";
