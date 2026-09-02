@@ -991,6 +991,24 @@
     text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
   }
 
+
+  /* Last week's numbers, sitting between the prescription and the entry
+     fields — the point at which a client is deciding today's load. */
+  .ex-lastweek {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    background: var(--card2); border-left: 2px solid var(--accent-dim);
+    border-radius: var(--radius-sm); padding: 7px 11px; margin-top: 9px;
+  }
+  .elw-label {
+    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; font-weight: 700; flex-shrink: 0;
+  }
+  .elw-value { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .elw-note {
+    flex: 1 1 100%; font-size: 10.5px; color: var(--muted);
+    font-style: italic; margin-top: 2px; line-height: 1.45;
+  }
+
   /* ---- Set entry ---- */
   .ex-entry { margin-top: 14px; }
   .set-head, .set-row {
@@ -6949,14 +6967,7 @@
     });
   }
 
-  // What was actually logged for an exercise in a given block and week
-  function loggedFor(blockID, week, exercise) {
-    return (clientData.trainingData || []).find(r =>
-      r["BlockID"] === blockID &&
-      String(r["Week"]) === String(week) &&
-      String(r["Exercise"]).trim().toLowerCase() === String(exercise).trim().toLowerCase()
-    ) || null;
-  }
+
 
   function setupTrainingButton() {
     const btn = document.getElementById("trainingQuickBtn");
@@ -7253,6 +7264,82 @@
     return String(ex["Logged"]).trim().toUpperCase() === "Y";
   }
 
+
+  /* What the client did for this exercise last week.
+
+     The single most useful number when deciding today's load — a prescribed
+     percentage or RIR is guidance, but "85kg at RPE 8 last week" is what
+     actually anchors the decision. Drawn from the same program rows already
+     loaded, so it costs nothing extra. */
+  function lastWeekFor(exercise, currentWeek, blockID) {
+    const weekNum = Number(String(currentWeek).replace(/\D/g, ""));
+    if (!weekNum || weekNum <= 1) return null;
+
+    const target = String(exercise).trim().toLowerCase();
+
+    // Walk back rather than assuming the immediately previous week was
+    // trained — a missed or deload week shouldn't leave this blank
+    for (let w = weekNum - 1; w >= 1; w--) {
+      const row = (clientData.trainingProgram || []).find(r =>
+        r["BlockID"] === blockID &&
+        Number(String(r["Week"]).replace(/\D/g, "")) === w &&
+        String(r["Exercise"]).trim().toLowerCase() === target
+      );
+      if (!row) continue;
+
+      const weights = [];
+      for (let s = 1; s <= 6; s++) {
+        const v = row["Set " + s];
+        if (v !== "" && v !== null && v !== undefined) weights.push(Number(v));
+      }
+      if (!weights.length) continue;   // prescribed but not logged, keep looking
+
+      // Bodyweight entries record as 1, which isn't a load worth showing
+      const real = weights.filter(v => v !== 1);
+      const top = real.length ? Math.max.apply(null, real) : null;
+
+      return {
+        week: w,
+        weeksAgo: weekNum - w,
+        weights: weights,
+        top: top,
+        allBodyweight: real.length === 0,
+        rpe: (row["RPE"] !== "" && row["RPE"] !== null && row["RPE"] !== undefined)
+          ? Number(row["RPE"]) : null,
+        notes: row["Notes"] || ""
+      };
+    }
+    return null;
+  }
+
+  function lastWeekChip(exercise, week) {
+    const prev = lastWeekFor(exercise, week.week, week.blockID);
+    if (!prev) return "";
+
+    const bits = [];
+    if (prev.allBodyweight) {
+      bits.push("bodyweight");
+    } else if (prev.top !== null) {
+      const varied = prev.weights.filter(v => v !== 1);
+      const sameThroughout = varied.every(v => v === varied[0]);
+      bits.push(sameThroughout
+        ? `${roundTo(prev.top, 1)}kg`
+        : `${roundTo(Math.min.apply(null, varied), 1)}–${roundTo(prev.top, 1)}kg`);
+    }
+    if (prev.rpe !== null) bits.push(`RPE ${roundTo(prev.rpe, 1)}`);
+    if (!bits.length) return "";
+
+    // Say how far back it was when it isn't simply last week
+    const label = prev.weeksAgo === 1 ? "Last week" : `Week ${prev.week}`;
+
+    return `
+      <div class="ex-lastweek" ${prev.notes ? `title="${escapeAttr(prev.notes)}"` : ""}>
+        <span class="elw-label">${label}</span>
+        <span class="elw-value">${bits.join(" · ")}</span>
+        ${prev.notes ? `<span class="elw-note">${prev.notes}</span>` : ""}
+      </div>`;
+  }
+
   function renderSessionCard(day, week) {
     const doneCount = day.exercises.filter(exerciseIsLogged).length;
     const remaining = day.exercises.length - doneCount;
@@ -7357,6 +7444,7 @@
           </div>
           ${prescribedBits.length ? `<div class="ex-prescribed">${prescribedBits.join(" · ")}</div>` : ""}
           ${cueBits.length ? `<div class="ex-cues">${cueBits.join("")}</div>` : ""}
+          ${lastWeekChip(ex["Exercise"], week)}
           <div class="ex-entry">${entry}</div>
           <input type="text" class="exi-note" data-ex="${idx}"
                  placeholder="Notes — missed reps, how it felt..."
