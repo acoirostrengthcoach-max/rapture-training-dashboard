@@ -810,45 +810,6 @@
   .af-barcode-row button:hover { background: rgba(212,162,76,0.1); }
   .af-barcode-row button:disabled { opacity: 0.5; }
 
-  /* ---------- Barcode scanning ---------- */
-  .af-scan {
-    width: 100%; display: flex; align-items: center; justify-content: center;
-    gap: 9px; background: var(--accent); color: var(--bg);
-    border: none; border-radius: var(--radius-pill);
-    padding: 12px; font-size: 13px; font-weight: 700; margin-bottom: 16px;
-  }
-  .af-scan svg { width: 18px; height: 18px; }
-  .af-scan:hover { opacity: 0.92; background: var(--accent); }
-  .af-scan:active { transform: scale(0.98); }
-
-  .scan-overlay {
-    position: fixed; inset: 0; z-index: 2100;
-    background: rgba(10,9,8,0.97);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 16px; padding: 20px;
-  }
-  .scan-frame {
-    position: relative; width: 100%; max-width: 460px;
-    aspect-ratio: 4 / 3; border-radius: var(--radius-lg);
-    overflow: hidden; background: #000;
-  }
-  .scan-frame video {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-  }
-  /* A guide rather than a hard crop — the detector reads the whole frame */
-  .scan-guide {
-    position: absolute; left: 12%; right: 12%; top: 34%; bottom: 34%;
-    border: 2px solid var(--accent); border-radius: var(--radius-sm);
-    box-shadow: 0 0 0 100vmax rgba(10,9,8,0.45);
-  }
-  .scan-status {
-    font-size: 13px; color: var(--text); text-align: center;
-    min-height: 20px; max-width: 460px;
-  }
-  .scan-hint {
-    font-size: 11px; color: var(--muted); text-align: center; margin: 0;
-  }
 
   /* ---------- Add food form ---------- */
   .ei-newfood {
@@ -3093,16 +3054,6 @@
       <div id="plannerWeeks"></div>
     </div>
   </div>
-</div>
-
-<div id="scanOverlay" class="scan-overlay" style="display:none;">
-  <button class="photo-overlay-close" id="scanCloseBtn">×</button>
-  <div class="scan-frame">
-    <video id="scanVideo" playsinline muted></video>
-    <div class="scan-guide"></div>
-  </div>
-  <div class="scan-status" id="scanStatus"></div>
-  <p class="scan-hint">Hold steady and fill the frame with the barcode.</p>
 </div>
 
 <div id="videoOverlay" class="video-overlay" style="display:none;">
@@ -6626,15 +6577,6 @@
     if (holder) holder.innerHTML = "";
   }
 
-  (function wireScanOverlay() {
-    const closeBtn = document.getElementById("scanCloseBtn");
-    if (closeBtn) closeBtn.addEventListener("click", stopBarcodeScan);
-    document.addEventListener("keydown", (e) => {
-      const overlay = document.getElementById("scanOverlay");
-      if (e.key === "Escape" && overlay && overlay.style.display === "flex") stopBarcodeScan();
-    });
-  })();
-
   (function wireVideoOverlay() {
     const overlay = document.getElementById("videoOverlay");
     const closeBtn = document.getElementById("videoOverlayClose");
@@ -7602,8 +7544,6 @@
   // Coverage of Australian products there is patchy and quality varies, so
   // results always land in the form for checking rather than saving directly.
 
-  let barcodeStream = null;
-  let barcodeLoopId = null;
 
   function findFoodByBarcode(code) {
     const target = String(code).trim();
@@ -7682,7 +7622,7 @@
 
     try {
       const product = await lookupOpenFoodFacts(code);
-      applyScannedProduct(code, product);
+      applyLookedUpProduct(code, product);
     } catch (err) {
       console.error("Lookup failed:", err);
       show("Couldn't reach Open Food Facts. Enter the values from the label.", "error");
@@ -7692,136 +7632,11 @@
     }
   }
 
-  async function startBarcodeScan() {
-    const overlay = document.getElementById("scanOverlay");
-    const video = document.getElementById("scanVideo");
-    const status = document.getElementById("scanStatus");
-
-    overlay.style.display = "flex";
-    status.textContent = "Starting the camera...";
-
-    // Camera access needs a secure context. Vercel is HTTPS, but a local or
-    // proxied copy might not be, and the failure is otherwise opaque.
-    if (!window.isSecureContext) {
-      status.textContent = "The camera needs a secure connection (https). Type the barcode instead.";
-      return;
-    }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      status.textContent = "This browser can't use the camera. Type the barcode instead.";
-      return;
-    }
-
-    try {
-      barcodeStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } }   // rear camera on a phone
-      });
-      video.srcObject = barcodeStream;
-      await video.play();
-      status.textContent = "Point at the barcode";
-    } catch (err) {
-      /* The distinction matters: a denied permission is fixed in browser
-         settings, no camera is unfixable, and a busy camera means closing
-         something else. "Couldn't open the camera" told you none of that. */
-      const name = err && err.name;
-      status.textContent =
-        name === "NotAllowedError"
-          ? "Camera access was blocked. Allow it in your browser settings, then try again."
-        : name === "NotFoundError"
-          ? "No camera found on this device. Type the barcode instead."
-        : name === "NotReadableError"
-          ? "The camera is in use by another app. Close it and try again."
-        : "Couldn't open the camera (" + (name || "unknown") + "). Type the barcode instead.";
-      console.error("Camera error:", err);
-      return;
-    }
-
-    // Chrome and Android have this built in; Safari doesn't, so fall back
-    if ("BarcodeDetector" in window) {
-      const detector = new BarcodeDetector({
-        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"]
-      });
-      const startedAt = Date.now();
-      let nudged = false;
-      const tick = async () => {
-        if (!barcodeStream) return;
-        try {
-          const found = await detector.detect(video);
-          if (found.length) { onBarcodeFound(found[0].rawValue); return; }
-        } catch (e) { /* a frame failing to decode is normal */ }
-
-        // Say something rather than looking frozen
-        if (!nudged && Date.now() - startedAt > 8000) {
-          nudged = true;
-          status.textContent = "Still looking — try more light, or hold the barcode flatter.";
-        }
-        barcodeLoopId = requestAnimationFrame(tick);
-      };
-      tick();
-    } else {
-      status.textContent = "Loading the scanner...";
-      try {
-        await loadZXing();
-        const reader = new ZXing.BrowserMultiFormatReader();
-        reader.decodeFromVideoElement(video, (result) => {
-          if (result) { reader.reset(); onBarcodeFound(result.getText()); }
-        });
-        status.textContent = "Point at the barcode";
-      } catch (e) {
-        status.textContent = "Scanning isn't supported on this browser. Enter the barcode by hand.";
-        console.error(e);
-      }
-    }
-  }
-
-  // Only fetched when actually needed, and only on browsers lacking the
-  // built-in detector
-  function loadZXing() {
-    if (window.ZXing) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = "https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js";
-      s.onload = resolve;
-      s.onerror = () => reject(new Error("Couldn't load the scanning library"));
-      document.head.appendChild(s);
-    });
-  }
-
-  function stopBarcodeScan() {
-    if (barcodeLoopId) { cancelAnimationFrame(barcodeLoopId); barcodeLoopId = null; }
-    if (barcodeStream) {
-      barcodeStream.getTracks().forEach(t => t.stop());
-      barcodeStream = null;
-    }
-    const overlay = document.getElementById("scanOverlay");
-    if (overlay) overlay.style.display = "none";
-  }
-
-  async function onBarcodeFound(code) {
-    const status = document.getElementById("scanStatus");
-    status.textContent = "Found " + code + " — looking it up...";
-
-    // Your own database first
-    const known = findFoodByBarcode(code);
-    if (known) {
-      stopBarcodeScan();
-      showToast(`"${known.n}" is already in the database.`);
-      const nameField = document.getElementById("afName");
-      if (nameField) nameField.value = known.n;
-      return;
-    }
-
-    let product = null;
-    try {
-      product = await lookupOpenFoodFacts(code);
-    } catch (e) {
-      console.warn("Open Food Facts lookup failed:", e.message);
-    }
-
-    stopBarcodeScan();
-    applyScannedProduct(code, product);
-  }
-
-  function applyScannedProduct(code, product) {
+  /* Fills the form from a looked-up product. Values always land here for
+   checking rather than being saved directly — Open Food Facts is
+   crowd-sourced, so a wrong entry there would otherwise become a permanent
+   wrong entry in your database. */
+function applyLookedUpProduct(code, product) {
     const setIf = (id, value) => {
       const el = document.getElementById(id);
       if (el && value !== "" && value !== undefined && value !== null) el.value = value;
@@ -7895,19 +7710,14 @@
           <button class="photo-overlay-close" id="addFoodClose">×</button>
         </div>
 
-        <button class="af-scan" id="afScanBtn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8"/></svg>
-          Scan a barcode
-        </button>
-
         <div class="calc-field">
           <label>Barcode</label>
           <div class="af-barcode-row">
             <input type="text" id="afBarcode" placeholder="Type or scan the number" inputmode="numeric">
             <button type="button" id="afLookupBtn">Look up</button>
           </div>
-          <p class="af-hint">Typing the number works just as well as scanning — the
-            lookup is the part that saves the typing.</p>
+          <p class="af-hint">Enter the number from the packet and press Look up to
+            fill the values automatically.</p>
         </div>
 
         <div class="calc-field">
@@ -8011,7 +7821,6 @@
       document.getElementById(id).oninput = recalc;
     });
 
-    document.getElementById("afScanBtn").onclick = startBarcodeScan;
     document.getElementById("afLookupBtn").onclick = lookupTypedBarcode;
     // Enter in the barcode field triggers the lookup rather than submitting
     document.getElementById("afBarcode").addEventListener("keydown", (e) => {
