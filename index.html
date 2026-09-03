@@ -798,6 +798,47 @@
   }
 
 
+
+  /* ---------- Barcode scanning ---------- */
+  .af-scan {
+    width: 100%; display: flex; align-items: center; justify-content: center;
+    gap: 9px; background: var(--accent); color: var(--bg);
+    border: none; border-radius: var(--radius-pill);
+    padding: 12px; font-size: 13px; font-weight: 700; margin-bottom: 16px;
+  }
+  .af-scan svg { width: 18px; height: 18px; }
+  .af-scan:hover { opacity: 0.92; background: var(--accent); }
+  .af-scan:active { transform: scale(0.98); }
+
+  .scan-overlay {
+    position: fixed; inset: 0; z-index: 2100;
+    background: rgba(10,9,8,0.97);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; padding: 20px;
+  }
+  .scan-frame {
+    position: relative; width: 100%; max-width: 460px;
+    aspect-ratio: 4 / 3; border-radius: var(--radius-lg);
+    overflow: hidden; background: #000;
+  }
+  .scan-frame video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  /* A guide rather than a hard crop — the detector reads the whole frame */
+  .scan-guide {
+    position: absolute; left: 12%; right: 12%; top: 34%; bottom: 34%;
+    border: 2px solid var(--accent); border-radius: var(--radius-sm);
+    box-shadow: 0 0 0 100vmax rgba(10,9,8,0.45);
+  }
+  .scan-status {
+    font-size: 13px; color: var(--text); text-align: center;
+    min-height: 20px; max-width: 460px;
+  }
+  .scan-hint {
+    font-size: 11px; color: var(--muted); text-align: center; margin: 0;
+  }
+
   /* ---------- Add food form ---------- */
   .ei-newfood {
     background: transparent; color: var(--muted);
@@ -867,6 +908,47 @@
     font-size: 11.5px; color: var(--muted); font-style: italic;
     text-align: center; padding: 4px 0;
   }
+
+
+  /* ---------- Recent plan changes ---------- */
+  .plan-changes {
+    background: linear-gradient(135deg, rgba(212,162,76,0.12), rgba(212,162,76,0.05));
+    border: 1px solid var(--accent-dim); border-radius: var(--radius-lg);
+    padding: 13px 15px; margin-bottom: 16px;
+  }
+  .pc-head {
+    font-size: 13px; font-weight: 700; color: var(--accent);
+  }
+  .pc-summary { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .pc-removed {
+    margin-top: 10px; padding-top: 9px;
+    border-top: 1px solid rgba(212,162,76,0.25);
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .pc-removed-label {
+    font-size: 9.5px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: 0.5px; font-weight: 700; flex: 1 1 100%;
+  }
+  .pc-removed-item {
+    font-size: 11px; color: var(--muted);
+    background: var(--card2); border-radius: var(--radius-pill);
+    padding: 4px 10px; text-decoration: line-through;
+  }
+
+  /* Changed items stand out without shouting — a left edge and a badge */
+  .meal-item.is-changed {
+    background: rgba(212,162,76,0.07);
+    border-left: 2px solid var(--accent);
+    margin-left: -13px; padding-left: 11px;
+  }
+  .mi-badge {
+    display: inline-block; font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px;
+    border-radius: var(--radius-pill); padding: 2px 7px; margin-left: 7px;
+    vertical-align: middle;
+  }
+  .mi-badge.added { background: rgba(122,180,120,0.2); color: var(--good); }
+  .mi-badge.changed { background: rgba(212,162,76,0.2); color: var(--accent); }
 
   /* ---------- Training sessions ---------- */
   .session-entry-btn {
@@ -3000,6 +3082,16 @@
       <div id="plannerWeeks"></div>
     </div>
   </div>
+</div>
+
+<div id="scanOverlay" class="scan-overlay" style="display:none;">
+  <button class="photo-overlay-close" id="scanCloseBtn">×</button>
+  <div class="scan-frame">
+    <video id="scanVideo" playsinline muted></video>
+    <div class="scan-guide"></div>
+  </div>
+  <div class="scan-status" id="scanStatus"></div>
+  <p class="scan-hint">Hold steady and fill the frame with the barcode.</p>
 </div>
 
 <div id="videoOverlay" class="video-overlay" style="display:none;">
@@ -6523,6 +6615,15 @@
     if (holder) holder.innerHTML = "";
   }
 
+  (function wireScanOverlay() {
+    const closeBtn = document.getElementById("scanCloseBtn");
+    if (closeBtn) closeBtn.addEventListener("click", stopBarcodeScan);
+    document.addEventListener("keydown", (e) => {
+      const overlay = document.getElementById("scanOverlay");
+      if (e.key === "Escape" && overlay && overlay.style.display === "flex") stopBarcodeScan();
+    });
+  })();
+
   (function wireVideoOverlay() {
     const overlay = document.getElementById("videoOverlay");
     const closeBtn = document.getElementById("videoOverlayClose");
@@ -7480,6 +7581,211 @@
   }
 
 
+
+  // ---------- Barcode scanning ----------
+  // Scans a product barcode, then fills the add-food form from whatever it
+  // can find. Checked against your own database first — a product entered
+  // once is recognised instantly forever, regardless of whether any public
+  // source has it. Open Food Facts is the fallback.
+  //
+  // Coverage of Australian products there is patchy and quality varies, so
+  // results always land in the form for checking rather than saving directly.
+
+  let barcodeStream = null;
+  let barcodeLoopId = null;
+
+  function findFoodByBarcode(code) {
+    const target = String(code).trim();
+    return (clientData.foodDatabase || []).find(f =>
+      f.bc && String(f.bc).trim() === target) || null;
+  }
+
+  /* Open Food Facts returns everything per 100g, which is what the database
+     stores. Sodium and calcium come back in grams, so both are converted. */
+  async function lookupOpenFoodFacts(code) {
+    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json` +
+                `?fields=product_name,brands,nutriments`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data || data.status !== 1 || !data.product) return null;
+
+    const p = data.product;
+    const n = p.nutriments || {};
+    const g = (key) => {
+      const v = n[key + "_100g"];
+      return (v === undefined || v === null || v === "") ? "" : Math.round(Number(v) * 10) / 10;
+    };
+    const mg = (key) => {
+      const v = n[key + "_100g"];
+      return (v === undefined || v === null || v === "") ? "" : Math.round(Number(v) * 1000);
+    };
+
+    const name = [p.brands ? String(p.brands).split(",")[0].trim() : "", p.product_name]
+      .filter(Boolean).join(", ");
+
+    return {
+      name: name || "",
+      protein: g("proteins"),
+      fat: g("fat"),
+      satFat: g("saturated-fat"),
+      monoFat: g("monounsaturated-fat"),
+      polyFat: g("polyunsaturated-fat"),
+      transFat: g("trans-fat"),
+      carbs: g("carbohydrates"),
+      sugars: g("sugars"),
+      fibre: g("fiber"),
+      sodium: mg("sodium"),
+      calcium: mg("calcium")
+    };
+  }
+
+  async function startBarcodeScan() {
+    const overlay = document.getElementById("scanOverlay");
+    const video = document.getElementById("scanVideo");
+    const status = document.getElementById("scanStatus");
+
+    overlay.style.display = "flex";
+    status.textContent = "Starting the camera...";
+
+    try {
+      barcodeStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }   // rear camera on a phone
+      });
+      video.srcObject = barcodeStream;
+      await video.play();
+      status.textContent = "Point at the barcode";
+    } catch (err) {
+      status.textContent = "Couldn't open the camera. Check the app has permission.";
+      console.error(err);
+      return;
+    }
+
+    // Chrome and Android have this built in; Safari doesn't, so fall back
+    if ("BarcodeDetector" in window) {
+      const detector = new BarcodeDetector({
+        formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"]
+      });
+      const tick = async () => {
+        if (!barcodeStream) return;
+        try {
+          const found = await detector.detect(video);
+          if (found.length) { onBarcodeFound(found[0].rawValue); return; }
+        } catch (e) { /* a frame failing to decode is normal */ }
+        barcodeLoopId = requestAnimationFrame(tick);
+      };
+      tick();
+    } else {
+      status.textContent = "Loading the scanner...";
+      try {
+        await loadZXing();
+        const reader = new ZXing.BrowserMultiFormatReader();
+        reader.decodeFromVideoElement(video, (result) => {
+          if (result) { reader.reset(); onBarcodeFound(result.getText()); }
+        });
+        status.textContent = "Point at the barcode";
+      } catch (e) {
+        status.textContent = "Scanning isn't supported on this browser. Enter the barcode by hand.";
+        console.error(e);
+      }
+    }
+  }
+
+  // Only fetched when actually needed, and only on browsers lacking the
+  // built-in detector
+  function loadZXing() {
+    if (window.ZXing) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js";
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("Couldn't load the scanning library"));
+      document.head.appendChild(s);
+    });
+  }
+
+  function stopBarcodeScan() {
+    if (barcodeLoopId) { cancelAnimationFrame(barcodeLoopId); barcodeLoopId = null; }
+    if (barcodeStream) {
+      barcodeStream.getTracks().forEach(t => t.stop());
+      barcodeStream = null;
+    }
+    const overlay = document.getElementById("scanOverlay");
+    if (overlay) overlay.style.display = "none";
+  }
+
+  async function onBarcodeFound(code) {
+    const status = document.getElementById("scanStatus");
+    status.textContent = "Found " + code + " — looking it up...";
+
+    // Your own database first
+    const known = findFoodByBarcode(code);
+    if (known) {
+      stopBarcodeScan();
+      showToast(`"${known.n}" is already in the database.`);
+      const nameField = document.getElementById("afName");
+      if (nameField) nameField.value = known.n;
+      return;
+    }
+
+    let product = null;
+    try {
+      product = await lookupOpenFoodFacts(code);
+    } catch (e) {
+      console.warn("Open Food Facts lookup failed:", e.message);
+    }
+
+    stopBarcodeScan();
+    applyScannedProduct(code, product);
+  }
+
+  function applyScannedProduct(code, product) {
+    const setIf = (id, value) => {
+      const el = document.getElementById(id);
+      if (el && value !== "" && value !== undefined && value !== null) el.value = value;
+    };
+
+    document.getElementById("afBarcode").value = code;
+
+    if (!product) {
+      showToast("Not found — enter the values from the label.");
+      const msg = document.getElementById("afMsg");
+      if (msg) {
+        msg.textContent = "Barcode saved. This product isn't in the public database, " +
+                          "so enter the values from the label — it'll be recognised next time.";
+        msg.className = "checkin-form-msg";
+      }
+      document.getElementById("afName").focus();
+      return;
+    }
+
+    setIf("afName", product.name);
+    setIf("afProtein", product.protein);
+    setIf("afFat", product.fat);
+    setIf("afSatFat", product.satFat);
+    setIf("afMonoFat", product.monoFat);
+    setIf("afPolyFat", product.polyFat);
+    setIf("afTransFat", product.transFat);
+    setIf("afCarbs", product.carbs);
+    setIf("afSugars", product.sugars);
+    setIf("afFibre", product.fibre);
+    setIf("afSodium", product.sodium);
+    setIf("afCalcium", product.calcium);
+
+    // Recalculate the energy display from whatever landed
+    const protein = document.getElementById("afProtein");
+    if (protein) protein.dispatchEvent(new Event("input"));
+
+    const filled = ["protein", "fat", "carbs"].filter(k => product[k] !== "").length;
+    const msg = document.getElementById("afMsg");
+    if (msg) {
+      msg.textContent = filled === 3
+        ? "Values filled from Open Food Facts. Check them against the label before saving."
+        : "Only partial data found. Fill the gaps from the label before saving.";
+      msg.className = "checkin-form-msg";
+    }
+    showToast(product.name ? `Found: ${product.name}` : "Product found");
+  }
+
   // ---------- Adding a food to the database ----------
   // A food missing from the database used to mean leaving the app, editing
   // the spreadsheet and coming back. This adds it in place.
@@ -7504,6 +7810,17 @@
         <div class="afc-head">
           <h3>Add a food</h3>
           <button class="photo-overlay-close" id="addFoodClose">×</button>
+        </div>
+
+        <button class="af-scan" id="afScanBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M11 8v8M15 8v8"/></svg>
+          Scan a barcode
+        </button>
+
+        <div class="calc-field">
+          <label>Barcode</label>
+          <input type="text" id="afBarcode" placeholder="Optional — scanned or typed" inputmode="numeric">
+          <p class="af-hint">Stored with the food, so scanning it again finds it instantly.</p>
         </div>
 
         <div class="calc-field">
@@ -7607,6 +7924,7 @@
       document.getElementById(id).oninput = recalc;
     });
 
+    document.getElementById("afScanBtn").onclick = startBarcodeScan;
     document.getElementById("afSaveBtn").onclick = () => saveNewFood(meal, order, close);
     document.getElementById("afName").focus();
   }
@@ -7642,6 +7960,7 @@
       email: currentEmail,
       passcode: currentPasscode,
       classification: document.getElementById("afCategory").value,
+      barcode: document.getElementById("afBarcode").value.trim(),
       name,
       protein: document.getElementById("afProtein").value,
       fat: document.getElementById("afFat").value,
@@ -7698,6 +8017,95 @@
       btn.textContent = "Add to Database";
       hideLoading();
     }
+  }
+
+
+  /* ---------- Recent plan changes ----------
+     Marks what a coach changed at the last update, so a client opening their
+     plan can see what's different rather than having to remember. Drawn from
+     Meal_Plan_History, which already records every edit.
+
+     "Recent" means everything changed on the most recent day an edit was
+     made — a coach often saves several times in one sitting, and treating
+     those as separate updates would show only the last few items. */
+
+  function recentPlanChanges(planName) {
+    const history = (clientData.mealPlanHistory || [])
+      .filter(r => (r["Plan Name"] || "") === planName && r["Timestamp"]);
+    if (!history.length) return null;
+
+    // Timestamps are "DD.MM.YY HH:MM", so the date is the part before the space
+    const dayOf = (ts) => String(ts).split(" ")[0];
+
+    const days = [...new Set(history.map(r => dayOf(r["Timestamp"])))];
+    days.sort((a, b) => {
+      const pa = parseDate(a), pb = parseDate(b);
+      return (pb || 0) - (pa || 0);
+    });
+    const latestDay = days[0];
+    if (!latestDay) return null;
+
+    const changes = history.filter(r => dayOf(r["Timestamp"]) === latestDay);
+
+    const byItem = {};       // "meal||food" -> change
+    const removed = [];
+    const planLevel = [];
+
+    changes.forEach(r => {
+      const type = String(r["Change"] || "").trim();
+      const detail = String(r["Detail"] || "");
+
+      if (type === "Removed") { removed.push(detail); return; }
+      if (type === "Added" || type === "Changed") {
+        // Detail reads "Meal: Food Name"
+        const idx = detail.indexOf(":");
+        if (idx === -1) return;
+        const meal = detail.slice(0, idx).trim();
+        const food = detail.slice(idx + 1).trim();
+        byItem[meal + "||" + food.toLowerCase()] = {
+          type,
+          from: r["Old Value"],
+          to: r["New Value"]
+        };
+        return;
+      }
+      // Targets, meal split, training window, plan created or duplicated
+      planLevel.push({ type, detail, from: r["Old Value"], to: r["New Value"] });
+    });
+
+    const changedDate = parseDate(latestDay);
+    return {
+      date: latestDay,
+      daysAgo: changedDate ? Math.floor((new Date() - changedDate) / 86400000) : null,
+      byItem, removed, planLevel,
+      count: Object.keys(byItem).length + removed.length + planLevel.length
+    };
+  }
+
+  function changeBannerHtml(changes) {
+    if (!changes || !changes.count) return "";
+
+    const when = changes.daysAgo === 0 ? "today"
+               : changes.daysAgo === 1 ? "yesterday"
+               : changes.daysAgo !== null && changes.daysAgo < 14 ? `${changes.daysAgo} days ago`
+               : `on ${changes.date}`;
+
+    const bits = [];
+    const itemCount = Object.keys(changes.byItem).length;
+    if (itemCount) bits.push(`${itemCount} food${itemCount === 1 ? "" : "s"} added or changed`);
+    if (changes.removed.length) bits.push(`${changes.removed.length} removed`);
+    if (changes.planLevel.length) bits.push(`${changes.planLevel.length} plan setting${changes.planLevel.length === 1 ? "" : "s"}`);
+
+    return `
+      <div class="plan-changes">
+        <div class="pc-head">Updated ${when}</div>
+        <div class="pc-summary">${bits.join(" · ")}</div>
+        ${changes.removed.length ? `
+          <div class="pc-removed">
+            <span class="pc-removed-label">No longer in this plan</span>
+            ${changes.removed.map(d => `<span class="pc-removed-item">${d}</span>`).join("")}
+          </div>` : ""}
+      </div>`;
   }
 
   // ---------- Shopping list ----------
@@ -8784,6 +9192,9 @@
         distribution.forEach(([label, p, f, c]) => { distByMeal[label] = { p, f, c }; });
       }
 
+      // What changed at the last update, so those items can be marked
+      const changes = recentPlanChanges(planName);
+
       // Totals and per-meal figures
       const actual = { kcal: 0, kcalDb: 0, p: 0, f: 0, c: 0 };
       const missingFoods = [];
@@ -8807,8 +9218,14 @@
           }
           mealActual.kcal += m.kcal; mealActual.kcalDb += m.kcalDb; mealActual.p += m.p;
           mealActual.f += m.f; mealActual.c += m.c;
-          return `<div class="meal-item">
-              <div class="mi-name">${r["Food Name"]}${r["Notes"] ? `<span class="mi-note">${r["Notes"]}</span>` : ""}</div>
+          const change = changes ? changes.byItem[meal + "||" + String(r["Food Name"]).toLowerCase()] : null;
+          const changeBadge = !change ? "" :
+            change.type === "Added"
+              ? `<span class="mi-badge added">New</span>`
+              : `<span class="mi-badge changed">Was ${change.from}</span>`;
+
+          return `<div class="meal-item${change ? " is-changed" : ""}">
+              <div class="mi-name">${r["Food Name"]}${changeBadge}${r["Notes"] ? `<span class="mi-note">${r["Notes"]}</span>` : ""}</div>
               <div class="mi-qty">${grams}g</div>
               <div class="mi-macros">
                 <span class="eim-kcal">${Math.round(m.kcal)} kcal</span>
@@ -8885,6 +9302,7 @@
         <div id="microPanel" style="display:none;"></div>
         <div id="shoppingPanel" style="display:none;"></div>
 
+        ${changeBannerHtml(changes)}
         ${mealBlocks.join("")}
       `;
 
