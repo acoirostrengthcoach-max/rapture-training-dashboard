@@ -799,6 +799,17 @@
 
 
 
+
+  .af-barcode-row { display: flex; gap: 8px; }
+  .af-barcode-row input { flex: 1; min-width: 0; margin-bottom: 0; }
+  .af-barcode-row button {
+    flex-shrink: 0; background: var(--card2); color: var(--accent);
+    border: 1px solid var(--accent-dim); border-radius: var(--radius-sm);
+    padding: 0 14px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .af-barcode-row button:hover { background: rgba(212,162,76,0.1); }
+  .af-barcode-row button:disabled { opacity: 0.5; }
+
   /* ---------- Barcode scanning ---------- */
   .af-scan {
     width: 100%; display: flex; align-items: center; justify-content: center;
@@ -7639,6 +7650,48 @@
     };
   }
 
+
+  /* Looks up a typed barcode. The scanner is a convenience; this is the path
+     that actually matters for building the database, since reading twelve
+     digits off a packet is far quicker than entering a dozen values. */
+  async function lookupTypedBarcode() {
+    const field = document.getElementById("afBarcode");
+    const btn = document.getElementById("afLookupBtn");
+    const msg = document.getElementById("afMsg");
+    const code = field.value.trim().replace(/\s/g, "");
+
+    const show = (t, kind) => {
+      if (msg) { msg.textContent = t; msg.className = "checkin-form-msg " + (kind || ""); }
+    };
+
+    if (!code) { show("Enter the barcode number first.", "error"); field.focus(); return; }
+    if (!/^\d{6,14}$/.test(code)) {
+      show("That doesn't look like a barcode — they're 8 to 13 digits.", "error");
+      return;
+    }
+
+    const known = findFoodByBarcode(code);
+    if (known) {
+      show(`"${known.n}" is already in your database.`, "error");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Looking...";
+    show("Searching Open Food Facts...", "");
+
+    try {
+      const product = await lookupOpenFoodFacts(code);
+      applyScannedProduct(code, product);
+    } catch (err) {
+      console.error("Lookup failed:", err);
+      show("Couldn't reach Open Food Facts. Enter the values from the label.", "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Look up";
+    }
+  }
+
   async function startBarcodeScan() {
     const overlay = document.getElementById("scanOverlay");
     const video = document.getElementById("scanVideo");
@@ -7647,16 +7700,38 @@
     overlay.style.display = "flex";
     status.textContent = "Starting the camera...";
 
+    // Camera access needs a secure context. Vercel is HTTPS, but a local or
+    // proxied copy might not be, and the failure is otherwise opaque.
+    if (!window.isSecureContext) {
+      status.textContent = "The camera needs a secure connection (https). Type the barcode instead.";
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      status.textContent = "This browser can't use the camera. Type the barcode instead.";
+      return;
+    }
+
     try {
       barcodeStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }   // rear camera on a phone
+        video: { facingMode: { ideal: "environment" } }   // rear camera on a phone
       });
       video.srcObject = barcodeStream;
       await video.play();
       status.textContent = "Point at the barcode";
     } catch (err) {
-      status.textContent = "Couldn't open the camera. Check the app has permission.";
-      console.error(err);
+      /* The distinction matters: a denied permission is fixed in browser
+         settings, no camera is unfixable, and a busy camera means closing
+         something else. "Couldn't open the camera" told you none of that. */
+      const name = err && err.name;
+      status.textContent =
+        name === "NotAllowedError"
+          ? "Camera access was blocked. Allow it in your browser settings, then try again."
+        : name === "NotFoundError"
+          ? "No camera found on this device. Type the barcode instead."
+        : name === "NotReadableError"
+          ? "The camera is in use by another app. Close it and try again."
+        : "Couldn't open the camera (" + (name || "unknown") + "). Type the barcode instead.";
+      console.error("Camera error:", err);
       return;
     }
 
@@ -7665,12 +7740,20 @@
       const detector = new BarcodeDetector({
         formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"]
       });
+      const startedAt = Date.now();
+      let nudged = false;
       const tick = async () => {
         if (!barcodeStream) return;
         try {
           const found = await detector.detect(video);
           if (found.length) { onBarcodeFound(found[0].rawValue); return; }
         } catch (e) { /* a frame failing to decode is normal */ }
+
+        // Say something rather than looking frozen
+        if (!nudged && Date.now() - startedAt > 8000) {
+          nudged = true;
+          status.textContent = "Still looking — try more light, or hold the barcode flatter.";
+        }
         barcodeLoopId = requestAnimationFrame(tick);
       };
       tick();
@@ -7819,8 +7902,12 @@
 
         <div class="calc-field">
           <label>Barcode</label>
-          <input type="text" id="afBarcode" placeholder="Optional — scanned or typed" inputmode="numeric">
-          <p class="af-hint">Stored with the food, so scanning it again finds it instantly.</p>
+          <div class="af-barcode-row">
+            <input type="text" id="afBarcode" placeholder="Type or scan the number" inputmode="numeric">
+            <button type="button" id="afLookupBtn">Look up</button>
+          </div>
+          <p class="af-hint">Typing the number works just as well as scanning — the
+            lookup is the part that saves the typing.</p>
         </div>
 
         <div class="calc-field">
@@ -7925,6 +8012,11 @@
     });
 
     document.getElementById("afScanBtn").onclick = startBarcodeScan;
+    document.getElementById("afLookupBtn").onclick = lookupTypedBarcode;
+    // Enter in the barcode field triggers the lookup rather than submitting
+    document.getElementById("afBarcode").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); lookupTypedBarcode(); }
+    });
     document.getElementById("afSaveBtn").onclick = () => saveNewFood(meal, order, close);
     document.getElementById("afName").focus();
   }
